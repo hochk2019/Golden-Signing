@@ -3,10 +3,10 @@
 Project: Golden Signing
 Spec: 1.2.0 (file `Golden Signing v1.2.0.md`; revision banner still says 1.1.0 — see `docs/revisions/1.2.0-notes.md`)
 Application version target: 0.1.0-alpha
-Current milestone: **Phase 2+3 — Token shell + PUS Safe profile COMPLETE**
-Last verified commit: a1d23a3
-Current blocker: none (real USB token + PUS upload optional)
-Next task: Phase 4 batch engine, or real-token matrix if device present
+Current milestone: **Phase 2–4 — Token shell + PUS Safe + Batch COMPLETE**
+Last verified commit: (filled after commit)
+Current blocker: none (USB token deferred; UI needs design gate)
+Next task: Phase 5 design brief (UI/UX Pro Max) then Qt UI
 Required skills: compose-next, ui-ux-pro-max (before any UI code), test-driven-development, systematic-debugging, verification-before-completion
 Last test result: `pytest` exit 0 (full suite)
 

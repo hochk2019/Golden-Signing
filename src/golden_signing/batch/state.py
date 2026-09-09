@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
 from uuid import uuid4
 
 
-class JobState(str, Enum):
+class JobState(StrEnum):
     DISCOVERED = "DISCOVERED"
     PREFLIGHT = "PREFLIGHT"
     READY = "READY"

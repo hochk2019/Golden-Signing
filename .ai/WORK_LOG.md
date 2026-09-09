@@ -1,5 +1,13 @@
 # WORK LOG
 
+## 2026-09-09 — Session 5 (Phase 4 batch engine, overnight autonomous)
+
+- User: skip USB token; continue next phases overnight; decide blockers myself.
+- Spec `docs/compose/spec/phase-4-batch-engine.md`.
+- Implemented retry/worker/queue/recovery + 12 tests (isolation, pause, cancel, 10-file batch).
+- Full pytest exit 0. Commit only, no push.
+- Next is UI design gate (not Qt code yet).
+
 ## 2026-09-09 — Session 4 (Phase 3 PUS Safe profile)
 
 - Spec `docs/compose/spec/phase-3-pus-safe-profile.md`.
