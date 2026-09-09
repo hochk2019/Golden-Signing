@@ -17,13 +17,14 @@ Status legend: DONE | IN_PROGRESS | BLOCKED | TODO | DEFERRED
 | P4-01 | Batch retry/worker/queue/recovery | DONE | P1–P3 | `batch/*` | unit+integration | 10-file isolation | — |
 | P4-02 | Phase 4 review | DONE | P4-01 | `.ai/reviews/phase4-batch.md` | — | PASS | — |
 | P5-00 | UI/UX Pro Max brief + tokens + branding assets | DONE | — | `docs/design/`, `assets/branding/` | — | design gate PASS | human glance mark |
-| P5-01 | PySide6 main window | TODO | P5-00 + human OK | `ui/` | manual | — | next coding session |
+| P5-01 | PySide6 main window (minimal) | DONE | mark OK | `ui/main_window.py` | offscreen 5 tests | pytest 0 | manual GUI check |
+| P5-02 | Phase 5 Qt review | DONE | P5-01 | `.ai/reviews/phase5-qt-ui.md` | — | PASS | — |
 
 ## Verification evidence (Phase 2–5)
 
-- `pytest -q` — **PASS** exit 0 (full suite; no Qt)
-- Design gate artifacts committed
+- `pytest -q` — **PASS** exit 0 (incl. offscreen UI)
+- PySide6 **6.11.2** via `uv sync --extra ui`
 
 ## Status label
 
-`PHASE 2–4 CORE + PHASE 5 DESIGN GATE COMPLETE / QT UI + REAL TOKEN + PUS UPLOAD PENDING`
+`PHASE 2–5 MINIMAL UI COMPLETE / MANUAL GUI + REAL TOKEN + PUS UPLOAD PENDING`
