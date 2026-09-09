@@ -13,7 +13,7 @@ Status legend: DONE | IN_PROGRESS | BLOCKED | TODO | DEFERRED
 | P0-07 | Domain contracts | DONE | P0-06 | `signing/contracts.py`, exceptions, batch/state | smoke tests | 7 passed | — |
 | P0-08 | Branding + fixture READMEs | DONE | — | `assets/branding/README.md` | — | written | — |
 | P0-09 | Smoke tests | DONE | P0-06 | `tests/unit/test_smoke.py` | 7 passed | pytest exit 0 | — |
-| P0-10 | Initial commit | IN_PROGRESS | P0-01..09 | — | — | this session | commit |
+| P0-10 | Initial commit | DONE | P0-01..09 | — | — | this session | commit |
 | P1-01 | PDF preflight laboratory | TODO | P0-10 | `src/golden_signing/pdf/` | golden fixtures | — | Phase 1 |
 | P1-02 | Sign with test certificate | TODO | P1-01 | `signing/pdf_signer.py` | verify pass | — | Phase 1 |
 | P2-01 | PKCS#11 token adapter | TODO | P1-02 | `token/pkcs11.py` | token present | user token | Phase 2 |
@@ -28,3 +28,4 @@ Status legend: DONE | IN_PROGRESS | BLOCKED | TODO | DEFERRED
 ## Status label
 
 `PHASE 0 COMPLETE / PUS REAL-WORLD VALIDATION PENDING`
+

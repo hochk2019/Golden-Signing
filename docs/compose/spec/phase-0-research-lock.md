@@ -3,7 +3,7 @@ feature: phase-0-research-lock
 status: delivered
 updated: 2026-09-09
 branch: main
-commits: (base)..(head) # see git log
+commits: 691f09ff7402f5dd60e5b760a06ebc1fb5173d00
 ---
 
 # Phase 0 — Research Lock
@@ -46,3 +46,4 @@ Foundation delivered: control-plane, ADR/matrix docs, scaffold, domain contracts
 - [x] T7: Domain contracts modules
 - [x] T8: Branding README + fixture private README
 - [x] T9: Initial commit (this commit)
+
