@@ -3,7 +3,7 @@ feature: phase-5-design-gate
 status: delivered
 updated: 2026-09-09
 branch: main
-commits: 729e15f..HEAD # design artifacts only; no Qt
+commits: 729e15f..bf3c5f6 # design artifacts only; no Qt
 ---
 
 # Phase 5 — Design Gate (pre-Qt)
