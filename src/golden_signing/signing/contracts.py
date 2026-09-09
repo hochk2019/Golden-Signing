@@ -7,24 +7,24 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
 from typing import Protocol, runtime_checkable
 
 
-class SignatureMode(str, Enum):
+class SignatureMode(StrEnum):
     INVISIBLE = "invisible"
     VISIBLE = "visible"
     ASK = "ask"
 
 
-class PusProfile(str, Enum):
+class PusProfile(StrEnum):
     PUS_SAFE = "pus-safe"
     MODERN_PADES = "modern-pades"
     CUSTOM = "custom"
 
 
-class PreflightLevel(str, Enum):
+class PreflightLevel(StrEnum):
     SAFE = "safe"
     WARN = "warn"
     BLOCK = "block"
@@ -68,6 +68,11 @@ class PreflightResult:
     existing_signatures: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
+    pdf_version: str | None = None
+    file_size_bytes: int = 0
+    writable: bool = True
+    has_acroform: bool = False
+    incremental_revisions: int = 0
 
 
 @dataclass(slots=True)

@@ -2,16 +2,22 @@
 
 **Single recommended next step after this session:**
 
-Complete Phase 0 commit, then start Phase 1 PDF laboratory:
+Phase 1 PDF laboratory is delivered on `main`. Next is **Phase 2 — Token abstraction** (spec §30):
 
-1. Confirm `uv sync` works and `python -c "import golden_signing"` smoke passes.
-2. Phase 1 task order (from spec §30 Phase 1):
-   - Parse `ecus_source.pdf` / `ecus_signed.pdf`
-   - Detect existing signatures
-   - Structural baseline compare (page count, AcroForm, ByteRange, CMS parse)
-   - Sign with **test certificate** first (not USB token)
-   - Post-sign verify + ByteRange integrity
-3. Do **not** start PySide6 UI until UI/UX Pro Max brief + design tokens exist (spec §46.1).
+1. PKCS#11 library discovery
+2. Enumerate slots / certificates / private keys
+3. Login session + PIN prompt only when necessary
+4. Sign digest sequentially (never parallelize crypto on one token)
+5. Reconnect / timeout / unplug handling (`SIGNING → TOKEN_LOST → WAITING_TOKEN`)
+
+Do **not** start PySide6 UI until UI/UX Pro Max brief + design tokens exist (spec §46.1).
+Do **not** claim PUS compatibility without real PUS upload test.
+
+## Known Phase 1 limitations (accepted)
+
+- Encrypted-PDF preflight unit case may classify as unreadable BLOCK rather than true `/Encrypt` detection.
+- `TestCertPdfSigner` signatures not yet identical to `PdfSigningEngine` Protocol (lab adapter).
+- Self-signed test cert produces certvalidator path-building warnings (expected; integrity still verified).
 
 ## Do not
 

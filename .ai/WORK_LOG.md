@@ -1,5 +1,25 @@
 # WORK LOG
 
+## 2026-09-09 — Session 2 (Phase 1 PDF laboratory)
+
+- compose-next Orient on existing Phase 0 repo; user approved Phase 1 on **main**.
+- Spec feature doc `docs/compose/spec/phase-1-pdf-lab.md` written and approved before code.
+- Implemented preflight, ByteRange integrity, ECUS baseline, ephemeral test cert, pyHanko sign+verify.
+- Multi-agent lanes: T2/T3/T5 subagents produced code then APIError on wrap-up; orchestrator verified. Independent review subagent succeeded.
+- ECUS baseline confirmed vs spec §2.2/§2.3 (Signature1, Adobe.PPKMS, adbe.pkcs7.sha1, ByteRange, ICH CUBE / CA2).
+- Fixed review findings: verify hard-fail; temp+`os.replace` atomic promote.
+- Evidence: pytest 70 pass; mypy/ruff Phase 1 clean; fixture hashes unchanged.
+
+### Open issues
+
+- Spec version banner 1.2.0 vs end-of-file 1.1.0 (N-001).
+- Duplicate section number 44.5 (N-002).
+- `golden.svg` 3.2MB — mark/PNG/ICO still needed before UI.
+- Encrypted-PDF preflight realism (may BLOCK as unreadable).
+- Protocol vs lab signer signature drift.
+- PySide6 commercial license path until packaging.
+- **PUS real-world validation still pending.**
+
 ## 2026-09-09 — Session 1 (Phase 0 bootstrap)
 
 - Read full spec `Golden Signing v1.2.0.md` (3333 lines) + `golden.svg`.

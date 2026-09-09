@@ -3,12 +3,12 @@
 Project: Golden Signing
 Spec: 1.2.0 (file `Golden Signing v1.2.0.md`; revision banner still says 1.1.0 — see `docs/revisions/1.2.0-notes.md`)
 Application version target: 0.1.0-alpha
-Current milestone: **Phase 0 — Research lock**
-Last verified commit: 691f09ff7402f5dd60e5b760a06ebc1fb5173d00
+Current milestone: **Phase 1 — PDF laboratory COMPLETE**
+Last verified commit: (filled at delivery commit)
 Current blocker: none
-Next task: finish Phase 0 artifacts (ADR, matrices, domain contracts, venv)
+Next task: Phase 2 token abstraction (PKCS#11 discovery) after user accepts Phase 1
 Required skills: compose-next, ui-ux-pro-max (before any UI code), test-driven-development, systematic-debugging, verification-before-completion
-Last test result: n/a (no test suite yet)
+Last test result: `pytest` **70 passed**
 
 ## Session resume protocol
 
@@ -28,3 +28,8 @@ Last test result: n/a (no test suite yet)
 
 Both are PDF 1.7, 4 pages (verified with pypdfium2).
 
+## Phase 1 quick facts
+
+- Preflight: SAFE on source, WARN + `Signature1` on ECUS signed
+- ECUS packaging: `/Filter /Adobe.PPKMS`, `/SubFilter /adbe.pkcs7.sha1`, ByteRange `[0, 313171, 321173, 33265]`
+- Lab sign path: ephemeral RSA test cert via pyHanko; **not** PUS-validated

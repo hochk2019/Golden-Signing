@@ -31,6 +31,24 @@ SHA-256 recorded in `.ai/START_HERE.md`. Never push to public remotes.
 Main worktree at `E:\GPT\Golden Signing` used for Phase 0 bootstrap (no concurrent agents).
 Feature work after Phase 0 should use Superpowers `using-git-worktrees` / compose-next Workspace.
 
+## D-007 — Phase 1 scope (this session)
+
+- User approved **Phase 1 PDF Laboratory only**.
+- Workspace: continue on **main** (explicit override of D-005 worktree preference).
+- Skills: compose-next + TDD + systematic-debugging + verification-before-completion + subagent-driven-development.
+- `memory-systems` skill **rejected** for this project phase (agent-memory architecture ≠ PDF lab).
+- Spec gate: write `docs/compose/spec/phase-1-pdf-lab.md` and wait for user approval before code (granted).
+
+## D-008 — Phase 1 signing profile default
+
+- Lab signing uses pyHanko modern path (SHA-256 digest); does **not** force ECUS `adbe.pkcs7.sha1`.
+- PUS-Compatibility SubFilter remains a later profile experiment after real PUS validation (N-005).
+
+## D-009 — Multi-agent fallback
+
+- Subagent APIError on T2/T3/T5 completion; code landed in working tree and was verified/finished in-session.
+- Independent review subagent (general-4) succeeded and drove two Important fixes (verify hard-fail; temp+replace).
+
 ## D-006 — Multi-agent
 
 Parallel subagents for research/implementation with disjoint file sets; commits stay with orchestrator (this session).

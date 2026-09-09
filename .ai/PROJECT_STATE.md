@@ -4,28 +4,23 @@ Status legend: DONE | IN_PROGRESS | BLOCKED | TODO | DEFERRED
 
 | ID | Objective | Status | Depends | Files | Tests | Evidence | Next |
 |---|---|---|---|---|---|---|---|
-| P0-01 | Git repo + ignore private fixtures | DONE | — | `.gitignore` | — | init + commit | — |
-| P0-02 | Move/hash golden PDFs | DONE | — | `tests/fixtures/private/` | pypdfium2 4 pages | SHA256 in START_HERE | — |
-| P0-03 | `.ai/` control-plane | DONE | P0-01 | `.ai/*` | — | files present | — |
-| P0-04 | REVISION_NOTE | DONE | — | `docs/revisions/1.2.0-notes.md` | — | N-001..N-005 | — |
-| P0-05 | ADR + matrices | DONE | P0-03 | `docs/ARCHITECTURE_*.md`, DEPENDENCY, TOKEN | — | written | — |
-| P0-06 | pyproject + uv.lock + venv | DONE | P0-05 | `pyproject.toml`, `uv.lock` | import smoke | uv sync OK | — |
-| P0-07 | Domain contracts | DONE | P0-06 | `signing/contracts.py`, exceptions, batch/state | smoke tests | 7 passed | — |
-| P0-08 | Branding + fixture READMEs | DONE | — | `assets/branding/README.md` | — | written | — |
-| P0-09 | Smoke tests | DONE | P0-06 | `tests/unit/test_smoke.py` | 7 passed | pytest exit 0 | — |
-| P0-10 | Initial commit | DONE | P0-01..09 | — | — | this session | commit |
-| P1-01 | PDF preflight laboratory | TODO | P0-10 | `src/golden_signing/pdf/` | golden fixtures | — | Phase 1 |
-| P1-02 | Sign with test certificate | TODO | P1-01 | `signing/pdf_signer.py` | verify pass | — | Phase 1 |
+| P0-01..10 | Research lock + scaffold | DONE | — | see Phase 0 | 7 smoke | commit 691f09f / 3e49261 | — |
+| P1-01 | PDF preflight laboratory | DONE | P0 | `pdf/inspection.py` | unit+integration | pytest 70 pass | — |
+| P1-02 | Sign with test certificate | DONE | P1-01 | `signing/pdf_signer.py`, `test_certs.py` | integration sign+verify | intact/valid True | — |
+| P1-03 | ByteRange + structural baseline | DONE | P1-01 | `pdf/integrity.py`, `pdf/baseline.py` | unit+integration | ECUS baseline matches §2 | — |
+| P1-04 | Independent review | DONE | P1-01..03 | `.ai/reviews/phase1-pdf-pki.md` | — | review PASS w/ notes | — |
 | P2-01 | PKCS#11 token adapter | TODO | P1-02 | `token/pkcs11.py` | token present | user token | Phase 2 |
 
-## Verification evidence (Phase 0)
+## Verification evidence (Phase 1)
 
-- `uv sync` / `uv sync --extra dev` — PASS
-- `uv run pytest` — **7 passed**
-- pyHanko **0.37.0** installed in `.venv`
-- Golden PDFs: 4 pages each
+- `pytest -q` — **70 passed**, exit 0
+- `mypy` Phase 1 modules — PASS
+- `ruff check` Phase 1 modules — PASS
+- pyHanko **0.37.0**
+- ECUS signed: `Signature1`, `/Adobe.PPKMS`, `/adbe.pkcs7.sha1`, ByteRange `[0, 313171, 321173, 33265]`
+- CMS: subject CÔNG TY TNHH ICH CUBE VIỆT NAM / issuer CA2 NACENCOMM SCT; fingerprint `62003b776fa39a574904c0fc3a6cd691bde004320e4bd365a0c4f00777474cda`
+- Test-cert sign+verify: `intact=True valid=True`; source fixture hashes unchanged
 
 ## Status label
 
-`PHASE 0 COMPLETE / PUS REAL-WORLD VALIDATION PENDING`
-
+`PHASE 1 PDF LABORATORY COMPLETE / PUS REAL-WORLD VALIDATION PENDING`

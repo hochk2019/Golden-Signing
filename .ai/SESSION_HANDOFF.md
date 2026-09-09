@@ -2,32 +2,40 @@
 
 ## Done this session
 
-- Orient + full spec review.
-- User Grill decisions recorded in `.ai/DECISIONS.md`.
-- Git repo init, `.gitignore`, directory scaffold.
-- Golden fixtures installed + hashed.
-- `.ai/` memory control-plane created.
-- Spec/ADR/matrix/contracts documents (see PROJECT_STATE).
+- compose-next Orient + review of spec 1.2.0 / golden.svg / control-plane.
+- User Grill: Phase 1 only; continue on **main**; skills = compose-next + TDD + systematic-debugging + verification + SDD; **skip memory-systems**; spec approval required (granted).
+- Wrote + approved `docs/compose/spec/phase-1-pdf-lab.md`.
+- Implemented Phase 1:
+  - Extended `PreflightResult`; `signing/profiles.py`
+  - `pdf/inspection.py` preflight
+  - `pdf/integrity.py` ByteRange/hash helpers
+  - `pdf/baseline.py` ECUS structural baseline
+  - `signing/test_certs.py` ephemeral RSA lab cert
+  - `signing/pdf_signer.py` test-cert sign+verify (temp+replace, hard-fail verify)
+- Multi-agent: T2/T3/T5 subagents wrote code then hit APIError on completion; orchestrator verified/finished. Independent review subagent (general-4) **succeeded**.
+- Fixed review Important findings (verify hard-fail, atomic replace).
+- Tests **70 passed**; mypy/ruff Phase 1 modules clean.
 
 ## Not done
 
-- Phase 1–9 implementation.
-- pyHanko/PySide6 install into project venv (follows ADR).
-- UI/UX Pro Max design brief.
+- Phase 2+ (token, PUS Safe production profile, batch UI, PySide6).
+- Branding mark/PNG/ICO variants.
 - Real USB token / PUS upload tests.
 
 ## Tests run
 
-- pypdfium2 open both golden PDFs → 4 pages each (PASS).
-- No unit/integration suite yet.
+- `python -m pytest -q` → 70 passed, exit 0
+- mypy Phase 1 modules → exit 0
+- ruff Phase 1 modules → exit 0
 
 ## Next single step
 
-Finish Phase 0 commit; user reviews ADR; then Phase 1 PDF laboratory with test certificate.
+User reviews Phase 1 delivery; then start Phase 2 token abstraction (PKCS#11 discovery) on a worktree.
 
 ## Important files
 
-- Spec: `Golden Signing v1.2.0.md`
+- Spec feature: `docs/compose/spec/phase-1-pdf-lab.md`
+- Review: `.ai/reviews/phase1-pdf-pki.md`
 - State: `.ai/PROJECT_STATE.md`
-- Fixtures: `tests/fixtures/private/ecus_{source,signed}.pdf`
-- Logo source: `assets/branding/golden.svg`
+- Engine: `src/golden_signing/signing/pdf_signer.py`
+- Fixtures: `tests/fixtures/private/ecus_{source,signed}.pdf` (gitignored)

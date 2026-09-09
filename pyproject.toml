@@ -48,6 +48,10 @@ strict = true
 packages = ["golden_signing"]
 mypy_path = "src"
 
+[[tool.mypy.overrides]]
+module = ["asn1crypto.*", "pypdfium2.*", "oscrypto.*"]
+ignore_missing_imports = true
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
