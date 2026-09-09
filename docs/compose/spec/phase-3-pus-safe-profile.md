@@ -3,7 +3,7 @@ feature: phase-3-pus-safe-profile
 status: delivered
 updated: 2026-09-09
 branch: main
-commits: 22231bb..HEAD # Phase 3 delivery
+commits: 22231bb..a1d23a3 # Phase 3 delivery
 ---
 
 # Phase 3 — PUS Safe Profile
