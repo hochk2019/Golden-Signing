@@ -11,17 +11,18 @@ Status legend: DONE | IN_PROGRESS | BLOCKED | TODO | DEFERRED
 | P2-03 | Pkcs11Backend + Fake | DONE | P2-02 | `token/pkcs11.py`, `fake.py` | unit+integration | missing DLL TokenError; fake sign | — |
 | P2-04 | Phase 2 review | DONE | P2-01..03 | `.ai/reviews/phase2-token.md` | — | PASS w/ notes | — |
 | P2-05 | Real USB token matrix | TODO | P2-03 | `docs/TOKEN_COMPATIBILITY.md` | user device | — | user session |
-| P3-01 | PUS Safe production profile | TODO | P1, P2 | `signing/profiles.py` | golden | — | Phase 3 |
+| P3-01 | PUS Safe settings + invariants | DONE | P1 | `signing/pus_safe.py` | unit | forced verify | — |
+| P3-02 | Golden regression | DONE | P3-01 | `tests/regression/` | regression | source hash stable | — |
+| P3-03 | Phase 3 review | DONE | P3-01..02 | `.ai/reviews/phase3-pus-safe.md` | — | PASS | — |
+| P4-01 | Batch engine | TODO | P1–P3 | `batch/` | stress | — | Phase 4 |
 
-## Verification evidence (Phase 2)
+## Verification evidence (Phase 2+3)
 
 - `pytest -q` — **PASS** exit 0 (full suite)
-- Token tests — 23 passed (discovery/fake/session/pkcs11/integration)
-- `mypy` token modules — PASS
-- `ruff` token modules — PASS
-- Concurrent sign: 8 threads serialized on one manager
-- Unplug → `TokenLostError` + `TOKEN_LOST`; replug + `recover()` → `LOGGED_IN`
+- Token tests — 23 passed
+- PUS Safe unit + golden regression — green
+- `mypy` / `ruff` on touched modules — PASS
 
 ## Status label
 
-`PHASE 2 TOKEN ABSTRACTION COMPLETE (FAKE+PKCS11 SHELL) / REAL TOKEN + PUS VALIDATION PENDING`
+`PHASE 2+3 TOKEN SHELL + PUS SAFE PROFILE COMPLETE / REAL TOKEN + PUS UPLOAD PENDING`

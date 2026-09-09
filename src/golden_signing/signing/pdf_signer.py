@@ -69,13 +69,31 @@ class TestCertPdfSigner:  # noqa: N801 — lab engine, not a pytest test class
 
         source_hash_before = sha256_file(input_path)
 
+        settings = None
+        if profile is not None:
+            from golden_signing.signing.pus_safe import (
+                assert_pus_safe_invariants,
+                resolve_signing_settings,
+            )
+
+            settings = resolve_signing_settings(profile)
+            try:
+                assert_pus_safe_invariants(settings)
+            except Exception as exc:  # noqa: BLE001
+                return SignResult(
+                    success=False,
+                    error_code="PROFILE_INVARIANT",
+                    message=str(exc),
+                    duration_s=time.perf_counter() - t0,
+                )
+
         try:
             from pyhanko.pdf_utils.incremental_writer import IncrementalPdfFileWriter
             from pyhanko.sign import sign_pdf
             from pyhanko.sign.signers import PdfSignatureMetadata
 
-            reason = profile.reason if profile else None
-            location = profile.location if profile else None
+            reason = settings.reason if settings else (profile.reason if profile else None)
+            location = settings.location if settings else (profile.location if profile else None)
             meta = PdfSignatureMetadata(
                 field_name="GoldenSigning",
                 reason=reason,

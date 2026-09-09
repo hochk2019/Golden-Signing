@@ -1,5 +1,12 @@
 # WORK LOG
 
+## 2026-09-09 — Session 4 (Phase 3 PUS Safe profile)
+
+- Spec `docs/compose/spec/phase-3-pus-safe-profile.md`.
+- `signing/pus_safe.py` settings resolve + invariants; pdf_signer wired; golden `tests/regression/`.
+- Full pytest exit 0; commit only, no push.
+- Status: Phase 2+3 complete; real token + PUS upload pending.
+
 ## 2026-09-09 — Session 3 (Phase 2 token abstraction)
 
 - User: commit, no push, continue next task carefully with compose-next.

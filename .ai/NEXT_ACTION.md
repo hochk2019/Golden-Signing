@@ -2,20 +2,11 @@
 
 **Single recommended next step after this session:**
 
-Phase 2 token abstraction is delivered on `main` (fake + PKCS#11 shell). Next options in order:
+Phases 2–3 delivered on `main` (token shell + PUS Safe profile/golden regression).
 
-1. **User plugs real USB token** — fill `docs/TOKEN_COMPATIBILITY.md`, run discovery + list certs + sign digest (no PDF yet).
-2. **Phase 3 — PUS Safe production profile** (spec §30): wire profile → engine, golden fixture regression, still no PUS claim without upload test.
-3. Then Phase 4 batch engine.
-
-Do **not** start PySide6 UI until UI/UX Pro Max brief + design tokens exist (spec §46.1).
-Do **not** claim PUS compatibility without real PUS upload test.
-
-## Known Phase 2 limitations
-
-- `Pkcs11Backend` not tested on real hardware.
-- Windows CSP/KSP fallback not implemented.
-- PDF engine still uses lab `TestCertPdfSigner`, not token-backed `SignerBackend` yet.
+1. **If USB token available** — fill `docs/TOKEN_COMPATIBILITY.md` (discovery, certs, PIN, sign digest).
+2. **Phase 4 — Batch engine** (spec §30): job queue, per-file state machine, retry/pause, atomic commit, one bad file must not kill batch.
+3. Keep PUS status as validation pending until real upload test.
 
 ## Do not
 
