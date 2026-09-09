@@ -3,7 +3,7 @@ feature: phase-2-token-abstraction
 status: delivered
 updated: 2026-09-09
 branch: main
-commits: 7b6acb3..HEAD # Phase 2 delivery
+commits: 7b6acb3..22231bb # Phase 2 delivery
 ---
 
 # Phase 2 — Token Abstraction
