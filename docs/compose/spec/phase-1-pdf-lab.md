@@ -3,7 +3,7 @@ feature: phase-1-pdf-lab
 status: delivered
 updated: 2026-09-09
 branch: main
-commits: 3e49261..HEAD # Phase 1 delivery on main; see git log
+commits: 3e49261..3d7e7d0 # Phase 1 delivery on main
 ---
 
 # Phase 1 — PDF Laboratory
