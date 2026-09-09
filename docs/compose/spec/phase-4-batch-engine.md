@@ -3,7 +3,7 @@ feature: phase-4-batch-engine
 status: delivered
 updated: 2026-09-09
 branch: main
-commits: 19d7de7..HEAD # Phase 4 delivery
+commits: 19d7de7..12d6d5a # Phase 4 delivery
 ---
 
 # Phase 4 — Batch Engine
