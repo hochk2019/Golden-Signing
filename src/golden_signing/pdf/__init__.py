@@ -1,0 +1,1 @@
+"""Package golden_signing.pdf."""

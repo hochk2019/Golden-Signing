@@ -1,0 +1,27 @@
+# Private fixtures (contain real business data)
+tests/fixtures/private/*
+!tests/fixtures/private/.gitkeep
+!tests/fixtures/private/README.md
+
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+dist/
+build/
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Local secrets
+*.pem
+*.pfx
+*.p12
+.env
