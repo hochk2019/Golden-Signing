@@ -3,12 +3,12 @@
 Project: Golden Signing
 Spec: 1.2.0 (file `Golden Signing v1.2.0.md`; revision banner still says 1.1.0 — see `docs/revisions/1.2.0-notes.md`)
 Application version target: 0.1.0-alpha
-Current milestone: **Phase 1 — PDF laboratory COMPLETE**
-Last verified commit: 3d7e7d0
-Current blocker: none
-Next task: Phase 2 token abstraction (PKCS#11 discovery) after user accepts Phase 1
+Current milestone: **Phase 2 — Token abstraction COMPLETE (fake + PKCS#11 shell)**
+Last verified commit: (filled after commit)
+Current blocker: none (real USB token optional for matrix fill-in)
+Next task: Phase 3 PUS Safe production profile, or real-token matrix if user has device
 Required skills: compose-next, ui-ux-pro-max (before any UI code), test-driven-development, systematic-debugging, verification-before-completion
-Last test result: `pytest` **70 passed**
+Last test result: `pytest` exit 0 (full suite; token layer green)
 
 ## Session resume protocol
 

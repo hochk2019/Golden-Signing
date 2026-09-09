@@ -1,5 +1,21 @@
 # WORK LOG
 
+## 2026-09-09 — Session 3 (Phase 2 token abstraction)
+
+- User: commit, no push, continue next task carefully with compose-next.
+- Spec `docs/compose/spec/phase-2-token-abstraction.md` written; implemented without extra Grill (requirements from §30 + TOKEN_COMPATIBILITY).
+- Built token/base, discovery, session manager, Pkcs11Backend, FakeTokenBackend + 23 tests.
+- Independent review subagent APIError → in-session review artifact `.ai/reviews/phase2-token.md`.
+- Fixed assert → TokenError on non-logged-in sign.
+- Evidence: full pytest exit 0; mypy/ruff token modules clean.
+- Status: `PHASE 2 TOKEN ABSTRACTION COMPLETE (FAKE+PKCS11 SHELL) / REAL TOKEN + PUS VALIDATION PENDING`.
+
+### Open issues
+
+- Real USB token matrix still TBD.
+- Token-backed PDF signing (wire SignerBackend into engine) is Phase 3+.
+- CSP/KSP fallback not implemented.
+
 ## 2026-09-09 — Session 2 (Phase 1 PDF laboratory)
 
 - compose-next Orient on existing Phase 0 repo; user approved Phase 1 on **main**.

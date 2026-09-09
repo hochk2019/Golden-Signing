@@ -4,23 +4,24 @@ Status legend: DONE | IN_PROGRESS | BLOCKED | TODO | DEFERRED
 
 | ID | Objective | Status | Depends | Files | Tests | Evidence | Next |
 |---|---|---|---|---|---|---|---|
-| P0-01..10 | Research lock + scaffold | DONE | — | see Phase 0 | 7 smoke | commit 691f09f / 3e49261 | — |
-| P1-01 | PDF preflight laboratory | DONE | P0 | `pdf/inspection.py` | unit+integration | pytest 70 pass | — |
-| P1-02 | Sign with test certificate | DONE | P1-01 | `signing/pdf_signer.py`, `test_certs.py` | integration sign+verify | intact/valid True | — |
-| P1-03 | ByteRange + structural baseline | DONE | P1-01 | `pdf/integrity.py`, `pdf/baseline.py` | unit+integration | ECUS baseline matches §2 | — |
-| P1-04 | Independent review | DONE | P1-01..03 | `.ai/reviews/phase1-pdf-pki.md` | — | review PASS w/ notes | — |
-| P2-01 | PKCS#11 token adapter | TODO | P1-02 | `token/pkcs11.py` | token present | user token | Phase 2 |
+| P0-01..10 | Research lock + scaffold | DONE | — | Phase 0 | 7 smoke | 691f09f / 3e49261 | — |
+| P1-01..04 | PDF laboratory + review | DONE | P0 | pdf/, signing/ | 70+ | 3d7e7d0 / 7b6acb3 | — |
+| P2-01 | PKCS#11 discovery | DONE | P1 | `token/discovery.py` | unit | env + no-load tests | — |
+| P2-02 | Token session manager | DONE | P2-01 | `token/session.py` | unit | serialize / lost / recover | — |
+| P2-03 | Pkcs11Backend + Fake | DONE | P2-02 | `token/pkcs11.py`, `fake.py` | unit+integration | missing DLL TokenError; fake sign | — |
+| P2-04 | Phase 2 review | DONE | P2-01..03 | `.ai/reviews/phase2-token.md` | — | PASS w/ notes | — |
+| P2-05 | Real USB token matrix | TODO | P2-03 | `docs/TOKEN_COMPATIBILITY.md` | user device | — | user session |
+| P3-01 | PUS Safe production profile | TODO | P1, P2 | `signing/profiles.py` | golden | — | Phase 3 |
 
-## Verification evidence (Phase 1)
+## Verification evidence (Phase 2)
 
-- `pytest -q` — **70 passed**, exit 0
-- `mypy` Phase 1 modules — PASS
-- `ruff check` Phase 1 modules — PASS
-- pyHanko **0.37.0**
-- ECUS signed: `Signature1`, `/Adobe.PPKMS`, `/adbe.pkcs7.sha1`, ByteRange `[0, 313171, 321173, 33265]`
-- CMS: subject CÔNG TY TNHH ICH CUBE VIỆT NAM / issuer CA2 NACENCOMM SCT; fingerprint `62003b776fa39a574904c0fc3a6cd691bde004320e4bd365a0c4f00777474cda`
-- Test-cert sign+verify: `intact=True valid=True`; source fixture hashes unchanged
+- `pytest -q` — **PASS** exit 0 (full suite)
+- Token tests — 23 passed (discovery/fake/session/pkcs11/integration)
+- `mypy` token modules — PASS
+- `ruff` token modules — PASS
+- Concurrent sign: 8 threads serialized on one manager
+- Unplug → `TokenLostError` + `TOKEN_LOST`; replug + `recover()` → `LOGGED_IN`
 
 ## Status label
 
-`PHASE 1 PDF LABORATORY COMPLETE / PUS REAL-WORLD VALIDATION PENDING`
+`PHASE 2 TOKEN ABSTRACTION COMPLETE (FAKE+PKCS11 SHELL) / REAL TOKEN + PUS VALIDATION PENDING`

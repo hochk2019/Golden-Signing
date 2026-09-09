@@ -31,6 +31,15 @@ SHA-256 recorded in `.ai/START_HERE.md`. Never push to public remotes.
 Main worktree at `E:\GPT\Golden Signing` used for Phase 0 bootstrap (no concurrent agents).
 Feature work after Phase 0 should use Superpowers `using-git-worktrees` / compose-next Workspace.
 
+## D-010 — Phase 2 token layer (this session)
+
+- Continue on **main**; commit only, **no push** (user instruction).
+- Scope: discovery + session manager + Pkcs11Backend shell + Fake for CI.
+- PIN via `Callable[[], str]`; never store on manager.
+- One `TokenSessionManager` = one token lane (`RLock`).
+- Real hardware token deferred to user device session (matrix TBD).
+- Independent review subagent APIError → in-session review recorded.
+
 ## D-007 — Phase 1 scope (this session)
 
 - User approved **Phase 1 PDF Laboratory only**.

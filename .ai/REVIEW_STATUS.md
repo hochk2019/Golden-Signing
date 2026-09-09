@@ -21,6 +21,15 @@ Milestone reviews required by spec §28 / §48 (Architect, Security, PDF/PKI, UX
 | UX | N/A Phase 1 | Phase 5 |
 | QA/Release | N/A Phase 1 | Phase 9 |
 
+## Phase 2
+
+| Review | Status | Artifact |
+|---|---|---|
+| Token / PKCS#11 + Security | **PASS with notes** | `.ai/reviews/phase2-token.md` |
+| Architecture | PASS (Protocol layering held) | same |
+| UX | N/A Phase 2 | Phase 5 |
+| QA/Release | N/A Phase 2 | Phase 9 |
+
 ## Gate
 
 No milestone PASS without evidence (tests, lint, type check, audit, golden regression).

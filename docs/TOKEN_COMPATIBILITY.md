@@ -16,16 +16,26 @@
 
 ## Discovery checklist (Phase 2)
 
-- [ ] List PKCS#11 modules (vendor DLL, middleware path)
-- [ ] List slots with token present
-- [ ] List certificates with private key matching
-- [ ] Identify key algorithm/size
-- [ ] Login (prompt PIN only when required)
-- [ ] Sign test digest
-- [ ] Logout / close session
-- [ ] Unplug / replug recovery test
+Code support (unit-tested with Fake; Pkcs11Backend ready for hardware):
 
-## Compatibility matrix (fill during Phase 2)
+- [x] List PKCS#11 modules (vendor DLL, middleware path) — `token/discovery.py`
+- [x] List slots with token present — `TokenBackend.list_slots` / Pkcs11Backend
+- [x] List certificates with private key matching — Fake + Pkcs11Backend
+- [x] Identify key algorithm/size — CertificateInfo fields
+- [x] Login (prompt PIN only when required) — `TokenSessionManager` + `pin_provider`
+- [x] Sign test digest — serialized `sign_digest`
+- [x] Logout / close session — `close()`
+- [x] Unplug / replug recovery test — Fake `simulate_unplug` + `recover()`
+
+Hardware verification (user device required):
+
+- [ ] Real DLL loads
+- [ ] Real cert enumeration
+- [ ] Real PIN login
+- [ ] Real digest sign
+- [ ] Physical unplug/replug
+
+## Compatibility matrix (fill with real device)
 
 | Token / CA | PKCS#11 DLL | Slot | Cert subject | Key | Backend | Notes |
 |---|---|---|---|---|---|---|
