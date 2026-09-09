@@ -1,21 +1,17 @@
-# Branding assets
+# Branding assets — Golden Signing
 
-Source logo provided by product owner: `golden.svg` (VTracer vector, square artwork, GOLDEN LOGISTICS mark).
-
-**Do not** redraw, recolor, crop oddly, or distort without brand owner permission.
-**Do not** inject this app logo into every signed PDF — signature profile logos are independent.
-
-## Required variants (spec §44.5b)
-
-| File | Status | Use |
+| File | Role | Notes |
 |---|---|---|
-| `golden.svg` | present (source) | About, large branding |
-| `golden-mark.svg` | TODO | Sidebar collapsed, icon source |
-| `golden-mark.png` | TODO | Fallback raster |
-| `golden-app-icon.ico` | TODO | Windows app icon 16–256px |
+| `golden.svg` | Source artwork (Golden Logistics) | **Do not modify** — 3.2MB VTracer |
+| `golden-mark.png` | App/sidebar mark 512px | Full diamond badge (recognizable); replace with icon-only cutout if brand owner provides |
+| `golden-app-icon.ico` | Windows icon | 16–256px generated from mark |
+| `golden-full-preview.png` | About / docs preview 512px | Same badge |
 
-## Product naming
+Product name in UI is **Golden Signing**, not Golden Logistics. See `docs/design/BRANDING_SPEC.md`.
 
-- Product: **Golden Signing**
-- Developer: HOC HK
-- Brand mark may say GOLDEN LOGISTICS — do not show that as the product name.
+## Pipeline (how assets were generated)
+
+1. Headless Chrome screenshot of `golden.svg` at 1024×1024.
+2. Pillow resize + ICO multi-size export.
+
+Do not rasterize once and upscale for large surfaces — prefer `golden.svg` when the UI stack supports it.

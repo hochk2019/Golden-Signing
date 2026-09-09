@@ -1,5 +1,14 @@
 # WORK LOG
 
+## 2026-09-09 — Session 6 (Phase 5 design gate, overnight)
+
+- User asleep; USB token skipped; continue autonomously.
+- Pro Max design-system search; BRANDING_SPEC / DESIGN_TOKENS / UX_BRIEF.
+- Generated golden-mark.png + multi-size ICO via Chrome+Pillow from golden.svg.
+- Full diamond badge shipped as mark (icon-only crop incomplete from VTracer source).
+- No Qt widgets yet — human checkpoint on mark first.
+- Full pytest still exit 0.
+
 ## 2026-09-09 — Session 5 (Phase 4 batch engine, overnight autonomous)
 
 - User: skip USB token; continue next phases overnight; decide blockers myself.

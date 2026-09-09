@@ -16,15 +16,14 @@ Status legend: DONE | IN_PROGRESS | BLOCKED | TODO | DEFERRED
 | P3-03 | Phase 3 review | DONE | P3-01..02 | `.ai/reviews/phase3-pus-safe.md` | — | PASS | — |
 | P4-01 | Batch retry/worker/queue/recovery | DONE | P1–P3 | `batch/*` | unit+integration | 10-file isolation | — |
 | P4-02 | Phase 4 review | DONE | P4-01 | `.ai/reviews/phase4-batch.md` | — | PASS | — |
-| P5-00 | UI/UX Pro Max brief + tokens | TODO | branding | `docs/design/` | — | — | before Qt code |
-| P5-01 | PySide6 main window | TODO | P5-00 | `ui/` | manual | — | Phase 5 |
+| P5-00 | UI/UX Pro Max brief + tokens + branding assets | DONE | — | `docs/design/`, `assets/branding/` | — | design gate PASS | human glance mark |
+| P5-01 | PySide6 main window | TODO | P5-00 + human OK | `ui/` | manual | — | next coding session |
 
-## Verification evidence (Phase 2–4)
+## Verification evidence (Phase 2–5)
 
-- `pytest -q` — **PASS** exit 0 (full suite)
-- Token + PUS Safe + Batch — all green
-- Batch integration: 9/10 success, 1 corrupt isolated
+- `pytest -q` — **PASS** exit 0 (full suite; no Qt)
+- Design gate artifacts committed
 
 ## Status label
 
-`PHASE 2–4 CORE (TOKEN SHELL + PUS SAFE + BATCH) COMPLETE / UI + REAL TOKEN + PUS UPLOAD PENDING`
+`PHASE 2–4 CORE + PHASE 5 DESIGN GATE COMPLETE / QT UI + REAL TOKEN + PUS UPLOAD PENDING`

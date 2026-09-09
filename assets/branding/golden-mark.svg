@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="Golden Logistics mark">
+  <!--
+    Mark source: full diamond badge from golden.svg (rasterized pipeline).
+    This lightweight SVG is a placeholder for vector pipelines; for production
+    export from assets/branding/golden.svg (VTracer source) or a cleaned
+    brand-owner cutout. Do not treat this file as the legal brand master.
+  -->
+  <rect width="512" height="512" fill="#FFFFFF"/>
+  <g transform="rotate(45 256 256)">
+    <rect x="128" y="128" width="256" height="256" rx="28" fill="none" stroke="#6B3F2A" stroke-width="14"/>
+    <rect x="148" y="148" width="216" height="216" rx="20" fill="none" stroke="#FDBE00" stroke-width="10"/>
+  </g>
+  <text x="256" y="270" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="42" font-weight="700" fill="#FDBE00">GOLDEN</text>
+</svg>
