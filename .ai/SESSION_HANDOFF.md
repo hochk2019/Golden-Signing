@@ -1,35 +1,27 @@
 # SESSION HANDOFF
 
-## Done this session
+## Done overnight (user asleep)
 
-- Phase 2 Token abstraction via compose-next on `main`.
-- Spec `docs/compose/spec/phase-2-token-abstraction.md` delivered.
-- Modules: `token/base.py`, `discovery.py`, `session.py`, `pkcs11.py`, `fake.py`.
-- Tests: discovery / fake / session / pkcs11 / integration (23 token tests; full suite exit 0).
-- Review: `.ai/reviews/phase2-token.md` (in-session after subagent APIError).
-- Control-plane updated. Commit only — **no push**.
+- Skipped USB token (not available).
+- **Phase 4 batch engine** — committed `12d6d5a` + docs `729e15f`.
+- **Phase 5 design gate** — Pro Max search, design docs, brand PNG/ICO — committed `bf3c5f6` + docs `577c9e5`.
+- Full `pytest -q` exit 0 throughout. **No push.**
 
-## Not done
+## Not done (blocked on user / hardware)
 
-- Real USB token hardware test / TOKEN_COMPATIBILITY matrix fill-in.
-- Phase 3 PUS Safe production profile wiring.
-- Token-backed PDF engine (SignerBackend integration).
-- UI / branding variants.
+- Qt/PySide6 UI implementation (needs mark glance OK).
+- Real USB token matrix.
+- PUS upload validation.
 
-## Tests run
+## When you wake
 
-- `python -m pytest -q` → exit 0
-- mypy token modules → exit 0
-- ruff token modules → exit 0
-
-## Next single step
-
-If user has USB token: run discovery + list certs + sign digest and fill matrix.  
-Else: start Phase 3 PUS Safe profile (still no PUS claim without upload test).
+1. Open `assets/branding/golden-mark.png` — accept or provide icon-only cutout.
+2. Then ask for Phase 5 Qt implementation (main window + batch list).
+3. Plug token when ready → fill TOKEN_COMPATIBILITY.
 
 ## Important files
 
-- Feature: `docs/compose/spec/phase-2-token-abstraction.md`
-- Review: `.ai/reviews/phase2-token.md`
-- State: `.ai/PROJECT_STATE.md`
-- Session mgr: `src/golden_signing/token/session.py`
+- State: `.ai/PROJECT_STATE.md` / `START_HERE.md` / `NEXT_ACTION.md`
+- Design: `docs/design/*`
+- Batch: `src/golden_signing/batch/`
+- Specs: `docs/compose/spec/phase-*.md`

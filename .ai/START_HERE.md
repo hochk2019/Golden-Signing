@@ -3,12 +3,12 @@
 Project: Golden Signing
 Spec: 1.2.0 (file `Golden Signing v1.2.0.md`; revision banner still says 1.1.0 — see `docs/revisions/1.2.0-notes.md`)
 Application version target: 0.1.0-alpha
-Current milestone: **Phase 2–4 — Token shell + PUS Safe + Batch COMPLETE**
-Last verified commit: 12d6d5a
-Current blocker: none (USB token deferred; UI needs design gate)
-Next task: Phase 5 design brief (UI/UX Pro Max) then Qt UI
+Current milestone: **Phase 2–4 core + Phase 5 design gate COMPLETE**
+Last verified commit: 577c9e5
+Current blocker: user glance on brand mark (then Qt UI)
+Next task: PySide6 main window after mark OK
 Required skills: compose-next, ui-ux-pro-max (before any UI code), test-driven-development, systematic-debugging, verification-before-completion
-Last test result: `pytest` exit 0 (full suite)
+Last test result: `pytest` exit 0
 
 ## Session resume protocol
 
