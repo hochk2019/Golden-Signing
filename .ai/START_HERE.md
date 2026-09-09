@@ -4,7 +4,7 @@ Project: Golden Signing
 Spec: 1.2.0 (file `Golden Signing v1.2.0.md`; revision banner still says 1.1.0 — see `docs/revisions/1.2.0-notes.md`)
 Application version target: 0.1.0-alpha
 Current milestone: **Phase 2–5 minimal Qt UI COMPLETE**
-Last verified commit: (filled after commit)
+Last verified commit: 2cd855b
 Current blocker: none (manual GUI check recommended)
 Next task: User GUI smoke; then token/PUS or Phase 6 features
 Required skills: compose-next, ui-ux-pro-max (before UI changes), test-driven-development, systematic-debugging, verification-before-completion

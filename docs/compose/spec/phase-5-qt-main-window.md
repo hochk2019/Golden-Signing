@@ -3,7 +3,7 @@ feature: phase-5-qt-main-window
 status: delivered
 updated: 2026-09-09
 branch: main
-commits: e569e64..HEAD # Phase 5 Qt main window
+commits: e569e64..2cd855b # Phase 5 Qt main window
 ---
 
 # Phase 5 — Qt Main Window (0.1.0-alpha)
