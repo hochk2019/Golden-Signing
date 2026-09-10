@@ -236,6 +236,37 @@ class MainWindow(QMainWindow):
         self._table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         lay.addWidget(self._table, stretch=1)
 
+        # Output folder
+        out_row = QHBoxLayout()
+        out_row.addWidget(QLabel("Thư mục output:"))
+        self._out_edit = QLineEdit()
+        self._out_edit.setPlaceholderText("Để trống → thư mục signed cạnh file nguồn")
+        self._out_edit.setClearButtonEnabled(True)
+        out_row.addWidget(self._out_edit, stretch=1)
+        self._out_browse = QPushButton("Chọn…")
+        self._out_browse.clicked.connect(self._on_choose_output_dir)
+        out_row.addWidget(self._out_browse)
+        lay.addLayout(out_row)
+
+        # Signature mode
+        mode_row = QHBoxLayout()
+        mode_row.addWidget(QLabel("Hiển thị chữ ký số:"))
+        self._mode_combo = QComboBox()
+        self._mode_combo.addItem("Vô hình — không đổi giao diện", userData="invisible")
+        self._mode_combo.addItem("Hiển thị trên PDF", userData="visible")
+        mode_row.addWidget(self._mode_combo)
+        mode_row.addStretch(1)
+        self._open_folder_btn = QPushButton("Mở thư mục")
+        self._open_file_btn = QPushButton("Mở file đã chọn")
+        self._clear_btn = QPushButton("Xóa khỏi danh sách")
+        self._open_folder_btn.clicked.connect(self._on_open_output_folder)
+        self._open_file_btn.clicked.connect(self._on_open_signed_file)
+        self._clear_btn.clicked.connect(self._on_clear_selected)
+        mode_row.addWidget(self._open_folder_btn)
+        mode_row.addWidget(self._open_file_btn)
+        mode_row.addWidget(self._clear_btn)
+        lay.addLayout(mode_row)
+
         footer = QHBoxLayout()
         self._summary = QLabel("0 file")
         footer.addWidget(self._summary)
@@ -247,6 +278,71 @@ class MainWindow(QMainWindow):
         footer.addWidget(self._sign_btn)
         lay.addLayout(footer)
         return ws
+
+    def _on_choose_output_dir(self) -> None:
+        folder = QFileDialog.getExistingDirectory(self, "Chọn thư mục lưu file đã ký")
+        if folder:
+            self._out_edit.setText(folder)
+
+    def _resolve_output_dir(self, jobs: list) -> Path:
+        text = self._out_edit.text().strip()
+        if text:
+            return Path(text)
+        if jobs:
+            return jobs[0].input_path.parent / "signed"
+        return Path.cwd() / "signed"
+
+    def _on_open_output_folder(self) -> None:
+        jobs = self._model.jobs()
+        folder = self._resolve_output_dir(jobs)
+        folder.mkdir(parents=True, exist_ok=True)
+        self._open_path(folder)
+
+    def _on_open_signed_file(self) -> None:
+        rows = self._table.selectionModel().selectedRows() if self._table.selectionModel() else []
+        if not rows:
+            QMessageBox.information(self, "Golden Signing", "Hãy chọn một dòng trong danh sách.")
+            return
+        job = self._model.jobs()[rows[0].row()]
+        target = job.output_path
+        if target is None or not Path(target).exists():
+            QMessageBox.warning(self, "Golden Signing", "File đã ký chưa tồn tại cho dòng này.")
+            return
+        self._open_path(Path(target))
+
+    def _on_clear_selected(self) -> None:
+        rows = sorted(
+            (i.row() for i in self._table.selectionModel().selectedRows()),
+            reverse=True,
+        ) if self._table.selectionModel() else []
+        if not rows:
+            # clear all
+            self._model.replace_jobs([])
+            self._reload_table()
+            self._update_summary()
+            return
+        jobs = self._model.jobs()
+        keep = [j for idx, j in enumerate(jobs) if idx not in set(rows)]
+        self._model.replace_jobs(keep)
+        self._reload_table()
+        self._update_summary()
+
+    def _open_path(self, path: Path) -> None:
+        import os
+        import subprocess
+        import sys
+
+        try:
+            if sys.platform.startswith("win"):
+                if path.is_file():
+                    os.startfile(str(path))  # noqa: S606
+                else:
+                    subprocess.Popen(["explorer", str(path)])
+            else:
+                opener = "open" if sys.platform == "darwin" else "xdg-open"
+                subprocess.Popen([opener, str(path)])
+        except Exception as exc:  # noqa: BLE001
+            QMessageBox.warning(self, "Golden Signing", f"Không mở được:\n{exc}")
 
     # --- nav stubs ----------------------------------------------------
 
@@ -422,7 +518,12 @@ class MainWindow(QMainWindow):
                 self._profile_label.setText("Profile: PUS Safe · lab (test cert)")
 
         profile = pus_safe_profile(certificate_fingerprint_sha256=engine.certificate_fingerprint_sha256)
-        out_dir = jobs[0].input_path.parent / "signed"
+        mode_key = self._mode_combo.currentData() or "invisible"
+        if mode_key == "visible":
+            from golden_signing.signing.contracts import SignatureMode
+
+            profile.mode = SignatureMode.VISIBLE
+        out_dir = self._resolve_output_dir(jobs)
         batch = BatchEngine(
             engine,
             profile,

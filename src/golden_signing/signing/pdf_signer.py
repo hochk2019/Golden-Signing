@@ -6,7 +6,6 @@ before SUCCESS (spec §38). No USB token in this module.
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
 
 from golden_signing.pdf.integrity import extract_byte_range, sha256_file, validate_byte_range
@@ -88,43 +87,24 @@ class TestCertPdfSigner:  # noqa: N801 — lab engine, not a pytest test class
                 )
 
         try:
-            from pyhanko.pdf_utils.incremental_writer import IncrementalPdfFileWriter
-            from pyhanko.sign import sign_pdf
-            from pyhanko.sign.signers import PdfSignatureMetadata
+            from golden_signing.signing.pyhanko_sign import pyhanko_sign_file
 
-            reason = settings.reason if settings else (profile.reason if profile else None)
-            location = settings.location if settings else (profile.location if profile else None)
-            meta = PdfSignatureMetadata(
-                field_name="GoldenSigning",
-                reason=reason,
-                location=location,
-                md_algorithm="sha256",
+            pyhanko_sign_file(
+                input_path=input_path,
+                output_path=output_path,
+                pyhanko_signer=self._signer,
+                profile=profile,
+                signer_display="Lab Test Certificate",
             )
-            output_path.parent.mkdir(parents=True, exist_ok=True)
-            tmp_path = output_path.with_name(f".{output_path.name}.tmp-sign")
-            try:
-                with open(input_path, "rb") as inf:
-                    writer = IncrementalPdfFileWriter(inf, strict=False)
-                    with open(tmp_path, "wb") as outf:
-                        sign_pdf(
-                            writer,
-                            signature_meta=meta,
-                            signer=self._signer,
-                            output=outf,
-                            in_place=False,
-                        )
-                # Source must be untouched before promote
-                if sha256_file(input_path) != source_hash_before:
-                    tmp_path.unlink(missing_ok=True)
-                    return SignResult(
-                        success=False,
-                        error_code="IO_ERROR",
-                        message="source PDF hash changed during signing",
-                        duration_s=time.perf_counter() - t0,
-                    )
-                os.replace(tmp_path, output_path)
-            finally:
-                tmp_path.unlink(missing_ok=True)
+            # Source must be untouched before promote
+            if sha256_file(input_path) != source_hash_before:
+                output_path.unlink(missing_ok=True)
+                return SignResult(
+                    success=False,
+                    error_code="IO_ERROR",
+                    message="source PDF hash changed during signing",
+                    duration_s=time.perf_counter() - t0,
+                )
         except Exception as exc:  # noqa: BLE001
             output_path.unlink(missing_ok=True)
             return SignResult(
