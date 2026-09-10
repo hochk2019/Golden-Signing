@@ -95,10 +95,10 @@ QCheckBox {{
     color: {FOREGROUND};
 }}
 QCheckBox::indicator {{
-    width: 18px;
-    height: 18px;
-    border: 2px solid {PRIMARY};
-    border-radius: 4px;
+    width: 12px;
+    height: 12px;
+    border: 1.5px solid {PRIMARY};
+    border-radius: 3px;
     background: {SURFACE};
 }}
 QCheckBox::indicator:hover {{
