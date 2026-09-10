@@ -130,3 +130,18 @@ def test_sign_extras_bg_toggle() -> None:
     extras_off = signing_extras(None, visible=True, show_background=False)
     assert extras_on["stamp_style"].background is not None
     assert extras_off["stamp_style"].background is None
+
+
+def test_sign_extras_logo_widens_box() -> None:
+    from golden_signing.signing.appearance import default_logo_path, estimate_stamp_box
+
+    text = "Da ky boi: ABC\nMST: 1\nThoi gian ky: 2026-01-01"
+    box_no = estimate_stamp_box(text, with_logo=False)
+    box_yes = estimate_stamp_box(text, with_logo=True)
+    assert box_yes[2] - box_yes[0] > box_no[2] - box_no[0]
+    if default_logo_path():
+        extras = signing_extras(None, visible=True, show_logo=True)
+        assert extras["stamp_style"].background is not None
+    extras_none = signing_extras(None, visible=True, show_logo=False)
+    # no logo → still works
+    assert extras_none["stamp_style"].background is not None

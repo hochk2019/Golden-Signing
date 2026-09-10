@@ -272,6 +272,14 @@ class MainWindow(QMainWindow):
         self._bg_check.setToolTip("Bật/tắt nền nhạt sau ô chữ ký trên PDF")
         self._bg_check.toggled.connect(self._on_bg_toggled)
         mode_row.addWidget(self._bg_check)
+        self._logo_check = QCheckBox("Logo")
+        logo_ok = (Path(__file__).resolve().parents[3] / "assets" / "branding" / "golden-mark.png").is_file()
+        self._logo_check.setChecked(
+            logo_ok and str(self._settings.value("signatureLogo", "1")) not in ("0", "false", "False")
+        )
+        self._logo_check.setToolTip("Hiện logo Golden Logistics bên trái ô chữ ký")
+        self._logo_check.toggled.connect(self._on_logo_toggled)
+        mode_row.addWidget(self._logo_check)
         mode_row.addStretch(1)
         self._open_folder_btn = QPushButton("Mở thư mục")
         self._open_file_btn = QPushButton("Mở file đã chọn")
@@ -304,6 +312,9 @@ class MainWindow(QMainWindow):
 
     def _on_bg_toggled(self, checked: bool) -> None:
         self._settings.setValue("signatureBg", "1" if checked else "0")
+
+    def _on_logo_toggled(self, checked: bool) -> None:
+        self._settings.setValue("signatureLogo", "1" if checked else "0")
 
     def _selected_text_color(self):  # noqa: ANN201
         data = self._color_combo.currentData()
@@ -563,6 +574,7 @@ class MainWindow(QMainWindow):
         profile.mode = SignatureMode.VISIBLE if mode_key == "visible" else SignatureMode.INVISIBLE
         engine.text_color = self._selected_text_color()
         engine.show_background = self._bg_enabled()
+        engine.show_logo = self._logo_check.isChecked()
         out_dir = self._resolve_output_dir(jobs)
         batch = BatchEngine(
             engine,

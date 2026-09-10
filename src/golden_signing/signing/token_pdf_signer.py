@@ -39,6 +39,7 @@ class TokenPdfSigner:
         self.cert_info: object | None = None
         self.text_color: tuple[float, float, float] | None = None
         self.show_background = True
+        self.show_logo = False
         if signing_cert is not None:
             import hashlib
 
@@ -271,6 +272,7 @@ class TokenPdfSigner:
                 cert_info=self.cert_info,
                 text_color=self.text_color,
                 show_background=self.show_background,
+                show_logo=self.show_logo,
             )
             if sha256_file(input_path) != source_hash_before:
                 output_path.unlink(missing_ok=True)

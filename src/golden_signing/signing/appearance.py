@@ -129,12 +129,90 @@ def build_stamp_text(
     return fold_vietnamese("\n".join(lines))
 
 
-def estimate_stamp_box(stamp_text: str, *, origin: tuple[int, int] = (40, 40)) -> tuple[int, int, int, int]:
-    """Tight box hugging stamp text (Helvetica ~0.5em avg width)."""
+LOGO_SIZE = 36
+DEFAULT_LOGO_NAME = "golden-mark.png"
+
+
+def default_logo_path() -> Path | None:
+    root = Path(__file__).resolve().parents[3]
+    p = root / "assets" / "branding" / DEFAULT_LOGO_NAME
+    return p if p.is_file() else None
+
+
+class _StampCard(PdfContent):
+    """Panel + optional logo mark on the left of the signature block."""
+
+    def __init__(
+        self,
+        width: float,
+        height: float,
+        rgb: tuple[float, float, float],
+        *,
+        logo_path: Path | None = None,
+        logo_size: float = LOGO_SIZE,
+        show_panel: bool = True,
+    ) -> None:
+        super().__init__(box=BoxConstraints(width=width, height=height))
+        self._rgb = rgb
+        self._logo_path = logo_path
+        self._logo_size = logo_size
+        self._show_panel = show_panel
+        self._logo: Any = None
+
+    def set_writer(self, writer: Any) -> None:
+        self.writer = writer
+        if self._logo_path and self._logo_path.is_file() and writer is not None:
+            from pyhanko.pdf_utils.images import PdfImage
+
+            try:
+                self._logo = PdfImage(
+                    str(self._logo_path),
+                    writer=writer,
+                    box=BoxConstraints(width=self._logo_size, height=self._logo_size),
+                )
+            except Exception:  # noqa: BLE001
+                self._logo = None
+
+    def render(self) -> bytes:
+        w = float(self.box.width or 0)
+        h = float(self.box.height or 0)
+        parts: list[bytes] = []
+        if self._show_panel:
+            r, g, b = self._rgb
+            br, bg, bb = BORDER_RGB
+            parts.append(
+                (
+                    f"{r:.3f} {g:.3f} {b:.3f} rg 0 0 {w:.2f} {h:.2f} re f "
+                    f"{br:.3f} {bg:.3f} {bb:.3f} RG 0.5 w 0.25 0.25 {w - 0.5:.2f} {h - 0.5:.2f} re S"
+                ).encode("ascii")
+            )
+        if self._logo is not None:
+            # Vertically center logo on the left gutter
+            ly = max(0.0, (h - self._logo_size) / 2.0)
+            try:
+                logo_ops = self._logo.render()
+            except Exception:  # noqa: BLE001
+                logo_ops = b""
+            if logo_ops:
+                parts.append(f"q 1 0 0 1 6 {ly:.2f} cm".encode("ascii"))
+                parts.append(logo_ops)
+                parts.append(b"Q")
+        return b" ".join(parts) if parts else b""
+
+
+def estimate_stamp_box(
+    stamp_text: str,
+    *,
+    origin: tuple[int, int] = (40, 40),
+    with_logo: bool = False,
+) -> tuple[int, int, int, int]:
+    """Tight box hugging stamp text; reserve left gutter when logo is on."""
     lines = stamp_text.split("\n") or [""]
     max_chars = max((len(line) for line in lines), default=1)
-    width = int(max_chars * FONT_SIZE * 0.52) + _PAD_X * 2
-    height = len(lines) * LEADING + _PAD_Y * 2 + 2
+    text_w = int(max_chars * FONT_SIZE * 0.52)
+    logo_w = (LOGO_SIZE + 12) if with_logo else 0
+    width = text_w + logo_w + _PAD_X * 2
+    height = max(len(lines) * LEADING + _PAD_Y * 2 + 2, LOGO_SIZE + 12 if with_logo else 0)
     x0, y0 = origin
     return (x0, y0, x0 + max(width, 160), y0 + max(height, 48))
 
@@ -157,24 +235,6 @@ def _make_text_style(
     )
 
 
-class _SoftPanel(PdfContent):
-    """Very light panel — optional, can be disabled for transparent stamp."""
-
-    def __init__(self, width: float, height: float, rgb: tuple[float, float, float]) -> None:
-        super().__init__(box=BoxConstraints(width=width, height=height))
-        self._rgb = rgb
-
-    def render(self) -> bytes:
-        r, g, b = self._rgb
-        w = float(self.box.width or 0)
-        h = float(self.box.height or 0)
-        br, bg, bb = BORDER_RGB
-        return (
-            f"{r:.3f} {g:.3f} {b:.3f} rg 0 0 {w:.2f} {h:.2f} re f "
-            f"{br:.3f} {bg:.3f} {bb:.3f} RG 0.5 w 0.25 0.25 {w - 0.5:.2f} {h - 0.5:.2f} re S"
-        ).encode("ascii")
-
-
 def signing_extras(
     profile: SigningProfile | None,
     *,
@@ -183,8 +243,10 @@ def signing_extras(
     cert_info: Any | None = None,
     text_color: tuple[float, float, float] | None = None,
     show_background: bool = True,
+    show_logo: bool = False,
+    logo_path: Path | str | None = None,
 ) -> dict[str, Any]:
-    """Visible stamp: tight box, optional soft background, text color."""
+    """Visible stamp: tight box, optional soft background + logo, text color."""
     if not visible:
         return {}
 
@@ -212,30 +274,37 @@ def signing_extras(
     )
 
     field_name = "GoldenSigningVisible"
-    box = estimate_stamp_box(stamp_text)
-    panel = None
-    if show_background:
-        panel = _SoftPanel(
-            width=float(box[2] - box[0]),
-            height=float(box[3] - box[1]),
-            rgb=PANEL_RGB,
-        )
+    use_logo = bool(show_logo)
+    resolved_logo: Path | None = None
+    if use_logo:
+        resolved_logo = Path(logo_path) if logo_path else default_logo_path()
+        use_logo = resolved_logo is not None and resolved_logo.is_file()
+
+    box = estimate_stamp_box(stamp_text, with_logo=use_logo)
+    card = _StampCard(
+        width=float(box[2] - box[0]),
+        height=float(box[3] - box[1]),
+        rgb=PANEL_RGB,
+        logo_path=resolved_logo if use_logo else None,
+        show_panel=show_background,
+    )
+    text_left = _PAD_X + (LOGO_SIZE + 10 if use_logo else 0)
     stamp = TextStampStyle(
         stamp_text=stamp_text,
         border_width=0,
         border_color=None,
-        background=panel,
+        background=card if (show_background or use_logo) else None,
         background_layout=SimpleBoxLayoutRule(
             x_align=AxisAlignment.ALIGN_MIN,
             y_align=AxisAlignment.ALIGN_MIN,
             margins=Margins.uniform(0),  # type: ignore[no-untyped-call]
         ),
-        background_opacity=PANEL_OPACITY if show_background else 0.0,
+        background_opacity=PANEL_OPACITY if show_background else 1.0,
         text_box_style=_make_text_style(text_color=text_color),
         inner_content_layout=SimpleBoxLayoutRule(
             x_align=AxisAlignment.ALIGN_MIN,
             y_align=AxisAlignment.ALIGN_MIN,
-            margins=Margins(left=_PAD_X, right=_PAD_X, top=_PAD_Y, bottom=_PAD_Y),
+            margins=Margins(left=text_left, right=_PAD_X, top=_PAD_Y, bottom=_PAD_Y),
         ),
     )
     field_spec = SigFieldSpec(
