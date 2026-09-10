@@ -265,6 +265,13 @@ class MainWindow(QMainWindow):
                 break
         self._color_combo.currentIndexChanged.connect(self._on_color_changed)
         mode_row.addWidget(self._color_combo)
+        from PySide6.QtWidgets import QCheckBox
+
+        self._bg_check = QCheckBox("Nền nhạt")
+        self._bg_check.setChecked(str(self._settings.value("signatureBg", "1")) not in ("0", "false", "False"))
+        self._bg_check.setToolTip("Bật/tắt nền nhạt sau ô chữ ký trên PDF")
+        self._bg_check.toggled.connect(self._on_bg_toggled)
+        mode_row.addWidget(self._bg_check)
         mode_row.addStretch(1)
         self._open_folder_btn = QPushButton("Mở thư mục")
         self._open_file_btn = QPushButton("Mở file đã chọn")
@@ -295,11 +302,17 @@ class MainWindow(QMainWindow):
             key, _rgb = data
             self._settings.setValue("signatureTextColor", key)
 
+    def _on_bg_toggled(self, checked: bool) -> None:
+        self._settings.setValue("signatureBg", "1" if checked else "0")
+
     def _selected_text_color(self):  # noqa: ANN201
         data = self._color_combo.currentData()
         if data:
             return data[1]
         return None
+
+    def _bg_enabled(self) -> bool:
+        return bool(self._bg_check.isChecked())
 
     def _on_choose_output_dir(self) -> None:
         folder = QFileDialog.getExistingDirectory(self, "Chọn thư mục lưu file đã ký")
@@ -549,6 +562,7 @@ class MainWindow(QMainWindow):
 
         profile.mode = SignatureMode.VISIBLE if mode_key == "visible" else SignatureMode.INVISIBLE
         engine.text_color = self._selected_text_color()
+        engine.show_background = self._bg_enabled()
         out_dir = self._resolve_output_dir(jobs)
         batch = BatchEngine(
             engine,

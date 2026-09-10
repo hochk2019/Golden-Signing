@@ -18,12 +18,23 @@ __all__ = [
     "DEFAULT_TEXT_COLORS",
     "DEFAULT_VISIBLE_BOX",
     "build_stamp_text",
+    "estimate_stamp_box",
     "resolve_vietnamese_font",
     "signing_extras",
 ]
 
-# Wider/taller box; no outer black frame (border_width=0).
-DEFAULT_VISIBLE_BOX: tuple[int, int, int, int] = (40, 40, 400, 175)
+# Fallback box if estimation is skipped (content-tight defaults used when signing).
+DEFAULT_VISIBLE_BOX: tuple[int, int, int, int] = (40, 40, 300, 130)
+
+# Very light panel so document content remains readable underneath.
+PANEL_RGB: tuple[float, float, float] = (0.973, 0.980, 0.988)  # ~#F8FAFC
+PANEL_OPACITY = 0.55
+BORDER_RGB: tuple[float, float, float] = (0.86, 0.88, 0.90)
+
+FONT_SIZE = 9
+LEADING = 12
+_PAD_X = 8
+_PAD_Y = 6
 
 # Preset text colors (RGB 0-1 for pyHanko)
 DEFAULT_TEXT_COLORS: dict[str, tuple[float, float, float]] = {
@@ -118,16 +129,25 @@ def build_stamp_text(
     return fold_vietnamese("\n".join(lines))
 
 
+def estimate_stamp_box(stamp_text: str, *, origin: tuple[int, int] = (40, 40)) -> tuple[int, int, int, int]:
+    """Tight box hugging stamp text (Helvetica ~0.5em avg width)."""
+    lines = stamp_text.split("\n") or [""]
+    max_chars = max((len(line) for line in lines), default=1)
+    width = int(max_chars * FONT_SIZE * 0.52) + _PAD_X * 2
+    height = len(lines) * LEADING + _PAD_Y * 2 + 2
+    x0, y0 = origin
+    return (x0, y0, x0 + max(width, 160), y0 + max(height, 48))
+
+
 def _make_text_style(
     *,
-    font_size: int = 10,
-    leading: int = 13,
+    font_size: int = FONT_SIZE,
+    leading: int = LEADING,
     text_color: tuple[float, float, float] | None = None,
 ) -> Any:
     from pyhanko.pdf_utils.font.basic import SimpleFontEngineFactory
     from pyhanko.pdf_utils.text import TextBoxStyle
 
-    # Helvetica: proportional, more readable than Courier for a signature block.
     return TextBoxStyle(
         font=SimpleFontEngineFactory("Helvetica", 0.5),
         font_size=font_size,
@@ -138,7 +158,7 @@ def _make_text_style(
 
 
 class _SoftPanel(PdfContent):
-    """Light tinted panel so the signature area is easy to spot."""
+    """Very light panel — optional, can be disabled for transparent stamp."""
 
     def __init__(self, width: float, height: float, rgb: tuple[float, float, float]) -> None:
         super().__init__(box=BoxConstraints(width=width, height=height))
@@ -148,10 +168,10 @@ class _SoftPanel(PdfContent):
         r, g, b = self._rgb
         w = float(self.box.width or 0)
         h = float(self.box.height or 0)
-        # fill + thin inner stroke for a soft card edge
+        br, bg, bb = BORDER_RGB
         return (
             f"{r:.3f} {g:.3f} {b:.3f} rg 0 0 {w:.2f} {h:.2f} re f "
-            f"0.80 0.84 0.88 RG 0.6 w 0.3 0.3 {w - 0.6:.2f} {h - 0.6:.2f} re S"
+            f"{br:.3f} {bg:.3f} {bb:.3f} RG 0.5 w 0.25 0.25 {w - 0.5:.2f} {h - 0.5:.2f} re S"
         ).encode("ascii")
 
 
@@ -162,8 +182,9 @@ def signing_extras(
     signer_display: str | None = None,
     cert_info: Any | None = None,
     text_color: tuple[float, float, float] | None = None,
+    show_background: bool = True,
 ) -> dict[str, Any]:
-    """Visible stamp: no border, Vietnamese font, optional text color."""
+    """Visible stamp: tight box, optional soft background, text color."""
     if not visible:
         return {}
 
@@ -191,16 +212,17 @@ def signing_extras(
     )
 
     field_name = "GoldenSigningVisible"
-    box = DEFAULT_VISIBLE_BOX
-    # Soft light-blue panel (~#EEF3F8) so the signed area is easy to see
-    panel = _SoftPanel(
-        width=float(box[2] - box[0]),
-        height=float(box[3] - box[1]),
-        rgb=(0.933, 0.953, 0.973),
-    )
+    box = estimate_stamp_box(stamp_text)
+    panel = None
+    if show_background:
+        panel = _SoftPanel(
+            width=float(box[2] - box[0]),
+            height=float(box[3] - box[1]),
+            rgb=PANEL_RGB,
+        )
     stamp = TextStampStyle(
         stamp_text=stamp_text,
-        border_width=0,  # panel draws its own hairline
+        border_width=0,
         border_color=None,
         background=panel,
         background_layout=SimpleBoxLayoutRule(
@@ -208,12 +230,12 @@ def signing_extras(
             y_align=AxisAlignment.ALIGN_MIN,
             margins=Margins.uniform(0),  # type: ignore[no-untyped-call]
         ),
-        background_opacity=0.88,
+        background_opacity=PANEL_OPACITY if show_background else 0.0,
         text_box_style=_make_text_style(text_color=text_color),
         inner_content_layout=SimpleBoxLayoutRule(
             x_align=AxisAlignment.ALIGN_MIN,
             y_align=AxisAlignment.ALIGN_MIN,
-            margins=Margins(left=8, right=8, top=8, bottom=8),
+            margins=Margins(left=_PAD_X, right=_PAD_X, top=_PAD_Y, bottom=_PAD_Y),
         ),
     )
     field_spec = SigFieldSpec(

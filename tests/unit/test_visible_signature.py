@@ -110,3 +110,23 @@ def test_fold_vietnamese() -> None:
 
     assert fold_vietnamese("Đã ký bởi: CÔNG TY") == "Da ky boi: CONG TY"
     assert "Đ" not in fold_vietnamese("Đã")
+
+
+def test_estimate_stamp_box_hugs_text() -> None:
+    from golden_signing.signing.appearance import build_stamp_text, estimate_stamp_box
+
+    text = build_stamp_text(company="ABC Co", mst="123", serial="aa", expires="2028-01-01")
+    box = estimate_stamp_box(text)
+    w = box[2] - box[0]
+    h = box[3] - box[1]
+    # Much tighter than old 360x135
+    assert w < 280
+    assert h < 100
+    assert w >= 160 and h >= 48
+
+
+def test_sign_extras_bg_toggle() -> None:
+    extras_on = signing_extras(None, visible=True, show_background=True)
+    extras_off = signing_extras(None, visible=True, show_background=False)
+    assert extras_on["stamp_style"].background is not None
+    assert extras_off["stamp_style"].background is None

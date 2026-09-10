@@ -36,6 +36,7 @@ class TestCertPdfSigner:  # noqa: N801 — lab engine, not a pytest test class
         self.certificate_fingerprint_sha256 = certificate_fingerprint_sha256(cert)
         self.cert_info: object | None = None
         self.text_color: tuple[float, float, float] | None = None
+        self.show_background = True
         # Lab cert display info for visible stamp
         from golden_signing.signing.contracts import CertificateInfo
 
@@ -114,6 +115,7 @@ class TestCertPdfSigner:  # noqa: N801 — lab engine, not a pytest test class
                 signer_display="Golden Signing Lab",
                 cert_info=self.cert_info,
                 text_color=self.text_color,
+                show_background=self.show_background,
             )
             # Source must be untouched before promote
             if sha256_file(input_path) != source_hash_before:
