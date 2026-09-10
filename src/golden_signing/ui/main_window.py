@@ -280,6 +280,10 @@ class MainWindow(QMainWindow):
         self._logo_check.setToolTip("Hiện logo Golden Logistics bên trái ô chữ ký")
         self._logo_check.toggled.connect(self._on_logo_toggled)
         mode_row.addWidget(self._logo_check)
+        self._logo_pick_btn = QPushButton("Chọn logo…")
+        self._logo_pick_btn.setToolTip("Chọn file PNG/JPG làm logo bên trái chữ ký (ghi nhớ)")
+        self._logo_pick_btn.clicked.connect(self._on_pick_logo)
+        mode_row.addWidget(self._logo_pick_btn)
         mode_row.addStretch(1)
         self._open_folder_btn = QPushButton("Mở thư mục")
         self._open_file_btn = QPushButton("Mở file đã chọn")
@@ -315,6 +319,22 @@ class MainWindow(QMainWindow):
 
     def _on_logo_toggled(self, checked: bool) -> None:
         self._settings.setValue("signatureLogo", "1" if checked else "0")
+
+    def _on_pick_logo(self) -> None:
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Chọn logo chữ ký", "", "Images (*.png *.jpg *.jpeg *.webp)"
+        )
+        if not path:
+            return
+        self._settings.setValue("signatureLogoPath", path)
+        self._logo_check.setChecked(True)
+        self.statusBar().showMessage(f"Logo chữ ký: {Path(path).name}", 4000)
+
+    def _custom_logo_path(self) -> Path | None:
+        raw = str(self._settings.value("signatureLogoPath", "") or "")
+        if raw and Path(raw).is_file():
+            return Path(raw)
+        return None
 
     def _selected_text_color(self):  # noqa: ANN201
         data = self._color_combo.currentData()
@@ -575,6 +595,7 @@ class MainWindow(QMainWindow):
         engine.text_color = self._selected_text_color()
         engine.show_background = self._bg_enabled()
         engine.show_logo = self._logo_check.isChecked()
+        engine.logo_path = self._custom_logo_path()
         out_dir = self._resolve_output_dir(jobs)
         batch = BatchEngine(
             engine,

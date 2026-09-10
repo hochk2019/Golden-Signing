@@ -191,6 +191,11 @@ class _StampCard(PdfContent):
             ly = max(0.0, (h - self._logo_size) / 2.0)
             try:
                 logo_ops = self._logo.render()
+                # Critical: pull XObject / resources into this appearance stream
+                try:
+                    self.import_resources(self._logo.resources)
+                except Exception:  # noqa: BLE001
+                    pass
             except Exception:  # noqa: BLE001
                 logo_ops = b""
             if logo_ops:
