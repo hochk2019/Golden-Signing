@@ -49,9 +49,10 @@ def pyhanko_sign_file(
     """Sign input → temp → os.replace(output). Raises on failure."""
     import os
 
-    from golden_signing.pdf.crypto import open_pdf_reader
     from pyhanko.pdf_utils.incremental_writer import IncrementalPdfFileWriter
     from pyhanko.sign.signers import PdfSigner
+
+    from golden_signing.pdf.crypto import open_pdf_reader
 
     kwargs = build_sign_call_kwargs(profile, signer_display=signer_display)
     output_path.parent.mkdir(parents=True, exist_ok=True)

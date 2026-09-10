@@ -7,7 +7,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-from golden_signing.pdf.integrity import extract_byte_range, sha256_file, validate_byte_range
+from golden_signing.pdf.integrity import sha256_file
 from golden_signing.signing.contracts import (
     CertificateInfo,
     SigningProfile,

@@ -57,7 +57,7 @@ def try_open_encrypted_with_empty_password(reader: Any) -> bool:
         except Exception:  # noqa: BLE001
             return False
     name = str(getattr(status, "name", status)).upper()
-    return name in {"USER", "OWNER", "1", "2"} or int(status) >= 1  # type: ignore[arg-type]
+    return name in {"USER", "OWNER", "1", "2"} or int(status) >= 1
 
 
 def open_pdf_reader(path: Path, *, strict: bool = False) -> Any:

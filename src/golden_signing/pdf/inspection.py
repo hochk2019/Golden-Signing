@@ -55,9 +55,10 @@ def _check_writable(path: Path) -> bool:
 
 def _inspect_with_pyhanko(path: Path) -> _HankoMeta:
     """Return structure metadata via pyHanko. Raises on unreadable/non-PDF."""
-    from golden_signing.pdf.crypto import try_open_encrypted_with_empty_password
     from pyhanko.pdf_utils.generic import NameObject
     from pyhanko.pdf_utils.reader import PdfFileReader
+
+    from golden_signing.pdf.crypto import try_open_encrypted_with_empty_password
 
     with open(path, "rb") as fh:
         reader = PdfFileReader(fh, strict=False)
