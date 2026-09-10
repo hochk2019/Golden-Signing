@@ -24,16 +24,18 @@ Status legend: DONE | IN_PROGRESS | BLOCKED | TODO | DEFERRED
 | P6-02 | Stamp polish (default visible, rich info, fold VN, color+bg toggle, tight box) | DONE | P6-01 | appearance + UI | tests green | 67ee2f3…c91ff55 | user GUI |
 | P6-03 | Token UX (auto-scan, PIN API, compact cert dialog) | DONE | P2 | token_pdf_signer + UI | ECA listed | 6307786 / 11027d9 | — |
 | P6-04 | Empty-password encrypted PDF sign/verify | DONE | P1 | `pdf/crypto.py` | user file test | 5df8c38 | — |
-| P7-00 | Appearance designer / logo in stamp / QR / placement | TODO | P6 | — | — | — | deferred |
-| P7-01 | History / full cert profile page | TODO | P5 | `ui/` | — | — | deferred |
+| P6-05 | Per-cert profiles + action column + Settings | DONE | P6 | `storage/cert_profiles.py`, UI | unit | c0acc48 | — |
+| P7-01 | Drag position stamp + error details + verify + pause/retry | DONE | P6 | `sig_position_dialog.py`, UI | smoke + pytest | 05399b2 | user GUI |
+| P7-02 | History SQLite + diagnostics export + watch folder | DONE | P4 | `storage/history.py`, `diagnostics/export.py` | unit | 9e85be5 | user GUI |
+| P8-00 | Update system (signed manifest) | TODO | P9 | `updater/` | — | — | Phase 8 |
+| P9-00 | Packaging PyInstaller + code-sign | TODO | P8 | — | — | — | Phase 9 |
+| — | PUS real upload | BLOCKED | env | — | — | — | user Hải quan |
 
 ## Verification evidence
 
-- `pytest -q` — **PASS** exit 0
-- Visible lab sign: field `GoldenSigningVisible` + crypto valid
-- ECA token: cert list + PIN via `token.open(user_pin=)`
-- Empty-password encrypted PDF: preflight not BLOCK; sign+verify OK
+- `pytest -q` — **PASS** exit 0 (full suite overnight)
+- Cert profile roundtrip + history CSV + diagnostics JSON tests green
 
 ## Status label
 
-`PHASE 2–6 COMPLETE + STAMP/TOKEN POLISH / MANUAL GUI + PUS UPLOAD PENDING`
+`PHASE 2–7 CORE UX COMPLETE (DRAG POS + HISTORY + DIAG + WATCH) / UPDATE + PACKAGING + PUS PENDING`

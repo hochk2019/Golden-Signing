@@ -1,27 +1,33 @@
 # SESSION HANDOFF
 
-## Done overnight (user asleep)
+## Overnight autonomous (user asleep)
 
-- Skipped USB token (not available).
-- **Phase 4 batch engine** — committed `12d6d5a` + docs `729e15f`.
-- **Phase 5 design gate** — Pro Max search, design docs, brand PNG/ICO — committed `bf3c5f6` + docs `577c9e5`.
-- Full `pytest -q` exit 0 throughout. **No push.**
+Implemented without push:
 
-## Not done (blocked on user / hardware)
+1. **05399b2** — Drag signature position (click PDF preview), per-cert save; error **Chi tiết** dialog; **Xác minh PDF**; batch **Tạm dừng / Ký lại lỗi**
+2. **9e85be5** — SQLite **lịch sử ký** + sidebar; **Export diagnostics JSON**; **Watch folder** (Cài đặt)
+3. **9e07aec** — lint/mypy cleanup
 
-- Qt/PySide6 UI implementation (needs mark glance OK).
-- Real USB token matrix.
-- PUS upload validation.
+Also earlier same overnight: table column balance, Profiles dialog, logo XObject fix, cert profile store.
 
-## When you wake
+## Tests
 
-1. Open `assets/branding/golden-mark.png` — accept or provide icon-only cutout.
-2. Then ask for Phase 5 Qt implementation (main window + batch list).
-3. Plug token when ready → fill TOKEN_COMPATIBILITY.
+- `pytest -q` exit 0 (full suite)
+- mypy/ruff on new modules clean
 
-## Important files
+## Not done (by design / blocked)
 
-- State: `.ai/PROJECT_STATE.md` / `START_HERE.md` / `NEXT_ACTION.md`
-- Design: `docs/design/*`
-- Batch: `src/golden_signing/batch/`
-- Specs: `docs/compose/spec/phase-*.md`
+- Phase 8 signed update system
+- Phase 9 PyInstaller packaging + code-sign
+- PUS real-world upload (needs Hải quan env)
+- True Vietnamese diacritics on PDF (folded for compatibility)
+
+## When user wakes
+
+1. Restart app (`uv run golden-signing`)
+2. Try: **Vị trí…** (click preview), row **Chi tiết**, **Xác minh PDF…**, **Lịch sử ký**, Cài đặt → **Watch folder** + **Export diagnostics**
+3. Ask for Phase 8/9 or PUS test next
+
+## HEAD
+
+`9e07aec` on `main` — **not pushed**
