@@ -27,6 +27,7 @@ from PySide6.QtWidgets import (
 )
 
 from golden_signing.batch.queue import BatchEngine
+from golden_signing.signing.appearance import DEFAULT_TEXT_COLORS
 from golden_signing.signing.pdf_signer import TestCertPdfSigner
 from golden_signing.signing.profiles import pus_safe_profile
 from golden_signing.signing.token_pdf_signer import TokenPdfSigner
@@ -241,6 +242,29 @@ class MainWindow(QMainWindow):
         self._mode_combo.addItem("Hiển thị trên PDF", userData="visible")
         self._mode_combo.setCurrentIndex(1)  # default visible
         mode_row.addWidget(self._mode_combo)
+        mode_row.addWidget(QLabel("Màu chữ ký:"))
+        self._color_combo = QComboBox()
+        color_labels = {
+            "navy": "Xanh navy",
+            "black": "Đen",
+            "dark_blue": "Xanh đậm",
+            "forest": "Xanh rêu",
+            "burgundy": "Đỏ mận",
+            "gray": "Xám",
+        }
+        for key, rgb in DEFAULT_TEXT_COLORS.items():
+            self._color_combo.addItem(color_labels.get(key, key), userData=(key, rgb))
+        from PySide6.QtCore import QSettings
+
+        self._settings = QSettings("HOCHK", "GoldenSigning")
+        saved_key = str(self._settings.value("signatureTextColor", "navy"))
+        for i in range(self._color_combo.count()):
+            item = self._color_combo.itemData(i)
+            if item and item[0] == saved_key:
+                self._color_combo.setCurrentIndex(i)
+                break
+        self._color_combo.currentIndexChanged.connect(self._on_color_changed)
+        mode_row.addWidget(self._color_combo)
         mode_row.addStretch(1)
         self._open_folder_btn = QPushButton("Mở thư mục")
         self._open_file_btn = QPushButton("Mở file đã chọn")
@@ -264,6 +288,18 @@ class MainWindow(QMainWindow):
         footer.addWidget(self._sign_btn)
         lay.addLayout(footer)
         return ws
+
+    def _on_color_changed(self, index: int) -> None:
+        data = self._color_combo.itemData(index)
+        if data:
+            key, _rgb = data
+            self._settings.setValue("signatureTextColor", key)
+
+    def _selected_text_color(self):  # noqa: ANN201
+        data = self._color_combo.currentData()
+        if data:
+            return data[1]
+        return None
 
     def _on_choose_output_dir(self) -> None:
         folder = QFileDialog.getExistingDirectory(self, "Chọn thư mục lưu file đã ký")
@@ -512,6 +548,7 @@ class MainWindow(QMainWindow):
         from golden_signing.signing.contracts import SignatureMode
 
         profile.mode = SignatureMode.VISIBLE if mode_key == "visible" else SignatureMode.INVISIBLE
+        engine.text_color = self._selected_text_color()
         out_dir = self._resolve_output_dir(jobs)
         batch = BatchEngine(
             engine,

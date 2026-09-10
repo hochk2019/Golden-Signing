@@ -35,6 +35,22 @@ class TestCertPdfSigner:  # noqa: N801 — lab engine, not a pytest test class
         self._signer = to_simple_signer(cert, key)
         self.certificate_fingerprint_sha256 = certificate_fingerprint_sha256(cert)
         self.cert_info: object | None = None
+        self.text_color: tuple[float, float, float] | None = None
+        # Lab cert display info for visible stamp
+        from golden_signing.signing.contracts import CertificateInfo
+
+        self.cert_info = CertificateInfo(
+            subject="CN=Golden Signing Lab, O=Golden Signing Lab, C=HK",
+            issuer="CN=Golden Signing Lab, O=Golden Signing Lab, C=HK",
+            serial=format(cert.serial_number, "x"),
+            fingerprint_sha256=self.certificate_fingerprint_sha256,
+            not_valid_before=str(cert.not_valid_before_utc),
+            not_valid_after=str(cert.not_valid_after_utc),
+            key_algorithm="RSA",
+            key_size=2048,
+            token_label=None,
+            backend="lab",
+        )
 
     def preflight(self, input_path: Path, profile: SigningProfile) -> object:
         from golden_signing.pdf.inspection import preflight_pdf
@@ -97,6 +113,7 @@ class TestCertPdfSigner:  # noqa: N801 — lab engine, not a pytest test class
                 profile=profile,
                 signer_display="Golden Signing Lab",
                 cert_info=self.cert_info,
+                text_color=self.text_color,
             )
             # Source must be untouched before promote
             if sha256_file(input_path) != source_hash_before:

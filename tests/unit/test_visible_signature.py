@@ -103,3 +103,10 @@ def test_mst_extract() -> None:
 
     s = "User ID: MST:2300944637, Common Name: ABC, Country: VN"
     assert mst_from_subject(s) == "2300944637"
+
+
+def test_fold_vietnamese() -> None:
+    from golden_signing.signing.appearance import fold_vietnamese
+
+    assert fold_vietnamese("Đã ký bởi: CÔNG TY") == "Da ky boi: CONG TY"
+    assert "Đ" not in fold_vietnamese("Đã")
