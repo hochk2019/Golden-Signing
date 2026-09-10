@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
@@ -67,7 +68,9 @@ class ProfilesDialog(QDialog):
         self._table.setRowCount(len(items))
         for row, p in enumerate(items):
             company = p.company or common_name_from_subject(p.company) or p.fingerprint[:16]
-            self._table.setItem(row, 0, QTableWidgetItem(company))
+            name_item = QTableWidgetItem(company)
+            name_item.setData(Qt.ItemDataRole.UserRole, p.fingerprint)
+            self._table.setItem(row, 0, name_item)
             self._table.setItem(row, 1, QTableWidgetItem(p.text_color_key))
             logo = "Có" if (p.show_logo and p.logo_path) else "—"
             item = QTableWidgetItem(logo)
@@ -76,7 +79,6 @@ class ProfilesDialog(QDialog):
             self._table.setItem(row, 2, item)
             self._table.setItem(row, 3, QTableWidgetItem("Có" if p.show_background else "—"))
             self._table.setItem(row, 4, QTableWidgetItem(p.signature_mode))
-            self._table.item(row, 0).setData(Qt.UserRole, p.fingerprint)  # type: ignore[name-defined]
 
     def _delete_selected(self) -> None:
         rows = sorted((i.row() for i in self._table.selectionModel().selectedRows()), reverse=True)
@@ -96,7 +98,7 @@ class ProfilesDialog(QDialog):
         for r in rows:
             item = self._table.item(r, 0)
             if item:
-                fp = item.data(Qt.UserRole)  # type: ignore[name-defined]
+                fp = item.data(Qt.ItemDataRole.UserRole)
                 if fp:
                     selected.add(str(fp))
         keep = [p for p in self._store.all() if p.fingerprint not in selected]
