@@ -55,12 +55,21 @@ def _check_writable(path: Path) -> bool:
 
 def _inspect_with_pyhanko(path: Path) -> _HankoMeta:
     """Return structure metadata via pyHanko. Raises on unreadable/non-PDF."""
+    from golden_signing.pdf.crypto import try_open_encrypted_with_empty_password
     from pyhanko.pdf_utils.generic import NameObject
     from pyhanko.pdf_utils.reader import PdfFileReader
 
     with open(path, "rb") as fh:
-        reader = PdfFileReader(fh)
-        encrypted = bool(reader.encrypted)
+        reader = PdfFileReader(fh, strict=False)
+        encrypted_flag = bool(reader.encrypted)
+        requires_password = False
+        if encrypted_flag:
+            if try_open_encrypted_with_empty_password(reader):
+                # Permission encryption with empty user password — readable.
+                encrypted_flag = False
+            else:
+                requires_password = True
+        encrypted = requires_password
         version = reader.input_version
         pdf_version = (
             f"{version[0]}.{version[1]}" if isinstance(version, tuple) else str(version)
@@ -70,25 +79,31 @@ def _inspect_with_pyhanko(path: Path) -> _HankoMeta:
         existing_signatures: list[str] = []
         has_acroform = False
 
-        root = reader.root
-        if "/AcroForm" in root:
-            has_acroform = True
-            acro = root["/AcroForm"]
-            fields_ref = acro.get("/Fields")
-            if fields_ref is not None:
-                for field_ref in fields_ref:
-                    field = (
-                        field_ref.get_object()
-                        if hasattr(field_ref, "get_object")
-                        else field_ref
-                    )
-                    ft = field.get("/FT")
-                    if ft == NameObject("/Sig"):
-                        name = str(field.get("/T", ""))
-                        if name:
-                            existing_signatures.append(name)
-                        else:
-                            existing_signatures.append("<unnamed-sig>")
+        try:
+            root = reader.root
+            if "/AcroForm" in root:
+                has_acroform = True
+                acro = root["/AcroForm"]
+                fields_ref = acro.get("/Fields")
+                if fields_ref is not None:
+                    for field_ref in fields_ref:
+                        field = (
+                            field_ref.get_object()
+                            if hasattr(field_ref, "get_object")
+                            else field_ref
+                        )
+                        ft = field.get("/FT")
+                        if ft == NameObject("/Sig"):
+                            name = str(field.get("/T", ""))
+                            if name:
+                                existing_signatures.append(name)
+                            else:
+                                existing_signatures.append("<unnamed-sig>")
+        except Exception:  # noqa: BLE001 — encrypted without successful decrypt
+            if encrypted:
+                pass
+            else:
+                raise
 
     return {
         "encrypted": encrypted,

@@ -87,8 +87,9 @@ class CertPickerDialog(QDialog):
         if c is None:
             self._detail.setText("")
             return
-        expiry = str(c.not_valid_after)[:10]
-        self._detail.setText(f"Issuer: {_ellipsis(c.issuer, 48)}\nHết hạn: {expiry}")
+        from golden_signing.ui.cert_label import cert_detail_lines
+
+        self._detail.setText(cert_detail_lines(c))
 
     def selected_cert(self):  # noqa: ANN201
         return self._combo.currentData()
@@ -100,26 +101,10 @@ def _ellipsis(text: str, n: int) -> str:
 
 
 def _short_cert_label(cert) -> str:  # noqa: ANN001
-    """Prefer CN=... from subject; fallback first 40 chars."""
-    subject = str(getattr(cert, "subject", "") or "")
-    cn = ""
-    for part in subject.split(","):
-        part = part.strip()
-        if part.upper().startswith("CN=") or part.upper().startswith("COMMON NAME:"):
-            cn = part.split(":", 1)[-1].strip() if ":" in part else part[3:].strip()
-            break
-    if not cn:
-        # Vietnamese certs often put company name after Common Name:
-        if "Common Name:" in subject:
-            cn = subject.split("Common Name:", 1)[1].split(",")[0].strip()
-        else:
-            cn = subject[:40]
-    expiry = str(getattr(cert, "not_valid_after", ""))[:10]
-    token = getattr(cert, "token_label", None) or ""
-    base = _ellipsis(cn, 36)
-    if token:
-        return f"{base} · {token} · {expiry}"
-    return f"{base} · {expiry}"
+    """Short display: company CN · token · expiry (YYYY-MM-DD)."""
+    from golden_signing.ui.cert_label import short_cert_label
+
+    return short_cert_label(cert)
 
 
 class MainWindow(QMainWindow):

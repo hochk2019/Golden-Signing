@@ -49,15 +49,18 @@ def pyhanko_sign_file(
     """Sign input → temp → os.replace(output). Raises on failure."""
     import os
 
+    from golden_signing.pdf.crypto import open_pdf_reader
     from pyhanko.pdf_utils.incremental_writer import IncrementalPdfFileWriter
     from pyhanko.sign.signers import PdfSigner
 
     kwargs = build_sign_call_kwargs(profile, signer_display=signer_display)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     tmp_path = output_path.with_name(f".{output_path.name}.tmp-sign")
+    reader = None
     try:
         with open(input_path, "rb") as inf:
-            writer = IncrementalPdfFileWriter(inf, strict=False)
+            reader = open_pdf_reader(input_path, strict=False)
+            writer = IncrementalPdfFileWriter(inf, prev=reader, strict=False)
             with open(tmp_path, "wb") as outf:
                 pdf_signer = PdfSigner(
                     signature_meta=kwargs["signature_meta"],
@@ -69,3 +72,6 @@ def pyhanko_sign_file(
         os.replace(tmp_path, output_path)
     finally:
         tmp_path.unlink(missing_ok=True)
+        fh = getattr(reader, "_gs_fh", None) if reader is not None else None
+        if fh is not None and not fh.closed:
+            fh.close()
