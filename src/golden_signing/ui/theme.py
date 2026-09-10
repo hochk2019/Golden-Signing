@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 __all__ = ["LIGHT_QSS", "apply_theme"]
 
 PRIMARY = "#1E3A5F"
@@ -88,7 +90,43 @@ QLabel#statusOk {{ color: {SUCCESS}; font-weight: 600; }}
 QLabel#statusWarn {{ color: {WARNING}; font-weight: 600; }}
 QLabel#statusErr {{ color: {DESTRUCTIVE}; font-weight: 600; }}
 QLabel#goldAccent {{ color: #A16207; }}
+QCheckBox {{
+    spacing: 8px;
+    color: {FOREGROUND};
+}}
+QCheckBox::indicator {{
+    width: 18px;
+    height: 18px;
+    border: 2px solid {PRIMARY};
+    border-radius: 4px;
+    background: {SURFACE};
+}}
+QCheckBox::indicator:hover {{
+    border-color: {GOLD};
+    background: #FFF8E1;
+}}
+QCheckBox::indicator:checked {{
+    background: {PRIMARY};
+    border-color: {PRIMARY};
+    image: url("{{check_url}}");
+}}
+QCheckBox::indicator:checked:disabled {{
+    background: #94A3B8;
+    border-color: #94A3B8;
+}}
 """
+
+
+def _check_icon_url() -> str:
+    here = Path(__file__).resolve()
+    root = here.parents[3]
+    icon = root / "assets" / "ui" / "check.svg"
+    if icon.is_file():
+        return icon.as_uri().replace("\\", "/")
+    return ""
+
+
+LIGHT_QSS = LIGHT_QSS.replace("{check_url}", _check_icon_url())
 
 
 def apply_theme(app: object) -> None:
