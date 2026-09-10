@@ -129,6 +129,10 @@ class MainWindow(QMainWindow):
         self._sig_page = 0
         self._batch_engine: BatchEngine | None = None
         self._batch_paused = False
+        from golden_signing.storage.history import SigningHistory
+
+        self._history = SigningHistory()
+        self._watcher = None
         from PySide6.QtCore import QSettings
 
         self._settings = QSettings("HOCHK", "GoldenSigning")
@@ -149,6 +153,26 @@ class MainWindow(QMainWindow):
             QTimer.singleShot(400, self._refresh_token_label)
         else:
             self._token_note.setText("Tự quét token đã tắt (Cài đặt).")
+        self._maybe_start_watch()
+
+    def _maybe_start_watch(self) -> None:
+        if self._watcher is not None:
+            self._watcher.stop()
+            self._watcher = None
+        if str(self._settings.value("watchFolder", "0")) in ("0", "false", "False"):
+            return
+        folder = str(self._settings.value("watchFolderDir", "") or "")
+        if not folder:
+            return
+        from golden_signing.ui.watch_folder import WatchFolder
+
+        self._watcher = WatchFolder(Path(folder), self._on_watch_files, parent=self)
+        self._watcher.start()
+        self.statusBar().showMessage(f"Đang theo dõi: {folder}", 4000)
+
+    def _on_watch_files(self, paths: list) -> None:
+        self.add_paths([Path(p) for p in paths])
+        self.statusBar().showMessage(f"Watch folder: thêm {len(paths)} PDF", 4000)
 
     def _build_rail(self) -> QFrame:
         rail = QFrame()
@@ -181,6 +205,7 @@ class MainWindow(QMainWindow):
         for label, handler in (
             ("Ký tài liệu", self._nav_sign_docs),
             ("Hồ sơ ký", self._nav_profiles),
+            ("Lịch sử ký", self._nav_history),
             ("Cài đặt", self._nav_settings),
             ("Giới thiệu", self._nav_about),
         ):
@@ -454,6 +479,22 @@ class MainWindow(QMainWindow):
         self._model.replace_jobs(list(batch.jobs))
         self._reload_table()
         self._update_summary()
+        # audit history
+        fp = self._active_fingerprint or ""
+        mode_key = str(self._mode_combo.currentData() or "visible")
+        import contextlib
+
+        for j in batch.jobs:
+            with contextlib.suppress(Exception):
+                self._history.record(
+                    input_path=str(j.input_path),
+                    output_path=str(j.output_path) if j.output_path else None,
+                    status=j.state.value,
+                    error_code=j.error_code,
+                    message=j.message,
+                    certificate=fp,
+                    profile_mode=mode_key,
+                )
 
         failed_msgs = [
             f"{j.input_path.name}: {j.message}" for j in result.jobs if j.error_code
@@ -665,6 +706,11 @@ class MainWindow(QMainWindow):
             self._logo_check.setChecked(False)
             self.statusBar().showMessage("Hồ sơ chứng thư đang dùng đã bị xóa", 4000)
 
+    def _nav_history(self) -> None:
+        from golden_signing.ui.history_dialog import HistoryDialog
+
+        HistoryDialog(self._history, self).exec()
+
     def _nav_settings(self) -> None:
         dlg = SettingsDialog(self._settings, self)
         dlg.exec()
@@ -681,6 +727,7 @@ class MainWindow(QMainWindow):
         self._bg_check.setChecked(
             str(self._settings.value("signatureBg", "1")) not in ("0", "false", "False")
         )
+        self._maybe_start_watch()
 
     def _nav_about(self) -> None:
         QMessageBox.information(
