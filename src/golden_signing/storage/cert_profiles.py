@@ -33,6 +33,9 @@ class CertProfile:
     logo_path: str = ""
     show_background: bool = True
     signature_mode: str = "visible"  # visible | invisible
+    sig_page: int = 0
+    sig_x: float | None = None  # PDF user space, origin bottom-left
+    sig_y: float | None = None
     updated_at: float = field(default_factory=time.time)
 
     def to_dict(self) -> dict[str, Any]:
@@ -40,6 +43,8 @@ class CertProfile:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> CertProfile:
+        sx = data.get("sig_x")
+        sy = data.get("sig_y")
         return cls(
             fingerprint=str(data.get("fingerprint") or ""),
             company=str(data.get("company") or ""),
@@ -48,6 +53,9 @@ class CertProfile:
             logo_path=str(data.get("logo_path") or ""),
             show_background=bool(data.get("show_background", True)),
             signature_mode=str(data.get("signature_mode") or "visible"),
+            sig_page=int(data.get("sig_page") or 0),
+            sig_x=None if sx is None else float(sx),
+            sig_y=None if sy is None else float(sy),
             updated_at=float(data.get("updated_at") or time.time()),
         )
 

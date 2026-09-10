@@ -249,6 +249,8 @@ def signing_extras(
     show_background: bool = True,
     show_logo: bool = False,
     logo_path: Path | str | None = None,
+    origin: tuple[int, int] | None = None,
+    page: int = 0,
 ) -> dict[str, Any]:
     """Visible stamp: tight box, optional soft background + logo, text color."""
     if not visible:
@@ -284,7 +286,7 @@ def signing_extras(
         resolved_logo = Path(logo_path) if logo_path else default_logo_path()
         use_logo = resolved_logo is not None and resolved_logo.is_file()
 
-    box = estimate_stamp_box(stamp_text, with_logo=use_logo)
+    box = estimate_stamp_box(stamp_text, with_logo=use_logo, origin=origin or (40, 40))
     card = _StampCard(
         width=float(box[2] - box[0]),
         height=float(box[3] - box[1]),
@@ -313,7 +315,7 @@ def signing_extras(
     )
     field_spec = SigFieldSpec(
         sig_field_name=field_name,
-        on_page=0,
+        on_page=max(0, int(page)),
         box=box,
         visible_sig_settings=VisibleSigSettings(
             rotate_with_page=True,

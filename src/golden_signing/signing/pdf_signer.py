@@ -39,6 +39,8 @@ class TestCertPdfSigner:  # noqa: N801 — lab engine, not a pytest test class
         self.show_background = True
         self.show_logo = False
         self.logo_path: Path | None = None
+        self.sig_origin: tuple[int, int] | None = None
+        self.sig_page = 0
         # Lab cert display info for visible stamp
         from golden_signing.signing.contracts import CertificateInfo
 
@@ -120,6 +122,8 @@ class TestCertPdfSigner:  # noqa: N801 — lab engine, not a pytest test class
                 show_background=self.show_background,
                 show_logo=self.show_logo,
                 logo_path=self.logo_path,
+                origin=self.sig_origin,
+                page=self.sig_page,
             )
             # Source must be untouched before promote
             if sha256_file(input_path) != source_hash_before:

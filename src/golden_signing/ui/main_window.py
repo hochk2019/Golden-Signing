@@ -28,6 +28,7 @@ from PySide6.QtWidgets import (
 
 from golden_signing.batch.queue import BatchEngine
 from golden_signing.signing.appearance import DEFAULT_TEXT_COLORS
+from golden_signing.signing.contracts import SigningProfile
 from golden_signing.signing.pdf_signer import TestCertPdfSigner
 from golden_signing.signing.profiles import pus_safe_profile
 from golden_signing.signing.token_pdf_signer import TokenPdfSigner
@@ -124,6 +125,10 @@ class MainWindow(QMainWindow):
         self._nav_buttons: list[QPushButton] = []
         self._cert_store = CertProfileStore()
         self._active_fingerprint: str | None = None
+        self._sig_origin: tuple[int, int] | None = None
+        self._sig_page = 0
+        self._batch_engine: BatchEngine | None = None
+        self._batch_paused = False
         from PySide6.QtCore import QSettings
 
         self._settings = QSettings("HOCHK", "GoldenSigning")
@@ -229,8 +234,8 @@ class MainWindow(QMainWindow):
         header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
         header.setSectionResizeMode(1, QHeaderView.ResizeMode.Fixed)
         header.setSectionResizeMode(2, QHeaderView.ResizeMode.Fixed)
-        self._table.setColumnWidth(1, 100)
-        self._table.setColumnWidth(2, 132)
+        self._table.setColumnWidth(1, 96)
+        self._table.setColumnWidth(2, 188)
         header.setStretchLastSection(False)
         self._table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self._table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
@@ -301,12 +306,25 @@ class MainWindow(QMainWindow):
         self._logo_pick_btn.setToolTip("Chọn file PNG/JPG làm logo bên trái chữ ký (ghi nhớ)")
         self._logo_pick_btn.clicked.connect(self._on_pick_logo)
         mode_row.addWidget(self._logo_pick_btn)
+        self._pos_btn = QPushButton("Vị trí…")
+        self._pos_btn.setToolTip("Bấm vào preview PDF để đặt ô chữ ký (lưu theo chứng thư)")
+        self._pos_btn.clicked.connect(self._on_pick_position)
+        mode_row.addWidget(self._pos_btn)
         mode_row.addStretch(1)
         self._open_folder_btn = QPushButton("Mở thư mục")
         self._clear_btn = QPushButton("Xóa khỏi danh sách")
+        self._verify_btn = QPushButton("Xác minh PDF…")
+        self._pause_btn = QPushButton("Tạm dừng")
+        self._retry_btn = QPushButton("Ký lại lỗi")
         self._open_folder_btn.clicked.connect(self._on_open_output_folder)
         self._clear_btn.clicked.connect(self._on_clear_selected)
+        self._verify_btn.clicked.connect(self._on_verify_pdf)
+        self._pause_btn.clicked.connect(self._on_toggle_pause)
+        self._retry_btn.clicked.connect(self._on_retry_failed)
         mode_row.addWidget(self._open_folder_btn)
+        mode_row.addWidget(self._verify_btn)
+        mode_row.addWidget(self._pause_btn)
+        mode_row.addWidget(self._retry_btn)
         mode_row.addWidget(self._clear_btn)
         lay.addLayout(mode_row)
 
@@ -363,6 +381,12 @@ class MainWindow(QMainWindow):
         self._logo_check.setChecked(bool(prof.show_logo and prof.logo_path))
         if prof.logo_path:
             self._settings.setValue("signatureLogoPath", prof.logo_path)
+        self._sig_page = int(prof.sig_page or 0)
+        self._sig_origin = (
+            (int(prof.sig_x), int(prof.sig_y))
+            if prof.sig_x is not None and prof.sig_y is not None
+            else None
+        )
         self.statusBar().showMessage(f"Đã nạp hồ sơ chứng thư: {company or fingerprint[:16]}", 3000)
 
     def _save_active_profile(self) -> None:
@@ -384,8 +408,72 @@ class MainWindow(QMainWindow):
             logo_path=logo_path if show_logo else "",
             show_background=self._bg_check.isChecked(),
             signature_mode=str(mode_key),
+            sig_page=self._sig_page,
+            sig_x=float(self._sig_origin[0]) if self._sig_origin else None,
+            sig_y=float(self._sig_origin[1]) if self._sig_origin else None,
         )
         self._cert_store.upsert(prof)
+
+    def _apply_engine_appearance(self, engine) -> None:  # noqa: ANN001
+        engine.text_color = self._selected_text_color()
+        engine.show_background = self._bg_enabled()
+        engine.show_logo = self._logo_check.isChecked()
+        engine.logo_path = self._custom_logo_path()
+        if engine.show_logo and engine.logo_path is None:
+            engine.show_logo = False
+        engine.sig_origin = self._sig_origin
+        engine.sig_page = self._sig_page
+
+    def _make_profile(self, engine) -> SigningProfile:  # noqa: ANN001
+        from golden_signing.signing.contracts import SignatureMode
+
+        profile = pus_safe_profile(
+            certificate_fingerprint_sha256=engine.certificate_fingerprint_sha256
+        )
+        mode_key = self._mode_combo.currentData() or "visible"
+        profile.mode = (
+            SignatureMode.VISIBLE if mode_key == "visible" else SignatureMode.INVISIBLE
+        )
+        return profile
+
+    def _run_batch(self, batch: BatchEngine, jobs: list) -> None:
+        self._batch_engine = batch
+        self._batch_paused = False
+        self._pause_btn.setText("Tạm dừng")
+        batch.enqueue_jobs(jobs)
+        self._sign_btn.setEnabled(False)
+        try:
+            result = batch.run()
+        except Exception as exc:  # noqa: BLE001
+            QMessageBox.critical(self, "Golden Signing", f"Lỗi khi ký:\n{exc}")
+            self._sign_btn.setEnabled(True)
+            return
+        finally:
+            self._sign_btn.setEnabled(True)
+
+        self._model.replace_jobs(list(batch.jobs))
+        self._reload_table()
+        self._update_summary()
+
+        failed_msgs = [
+            f"{j.input_path.name}: {j.message}" for j in result.jobs if j.error_code
+        ]
+        extra = ("\n\n" + "\n".join(failed_msgs[:5])) if failed_msgs else ""
+        title = "Golden Signing"
+        out_dir = batch._output_dir if hasattr(batch, "_output_dir") else ""  # noqa: SLF001
+        if result.failed:
+            QMessageBox.warning(
+                self,
+                title,
+                f"Hoàn tất: {result.success} thành công · {result.failed} lỗi · "
+                f"{result.cancelled} hủy\nThư mục: {out_dir}{extra}",
+            )
+        else:
+            QMessageBox.information(
+                self,
+                title,
+                f"Hoàn tất: {result.success} thành công · 0 lỗi\nThư mục: {out_dir}",
+            )
 
     def _on_pick_logo(self) -> None:
         path, _ = QFileDialog.getOpenFileName(
@@ -397,6 +485,99 @@ class MainWindow(QMainWindow):
         self._logo_check.setChecked(True)
         self._save_active_profile()
         self.statusBar().showMessage(f"Logo chữ ký: {Path(path).name}", 4000)
+
+    def _sample_pdf_for_position(self) -> Path | None:
+        jobs = self._model.jobs()
+        for j in jobs:
+            if j.input_path.is_file():
+                return Path(j.input_path)
+        files, _ = QFileDialog.getOpenFileNames(self, "Chọn PDF để xem trước", "", "PDF (*.pdf)")
+        if files:
+            return Path(files[0])
+        return None
+
+    def _on_pick_position(self) -> None:
+        pdf = self._sample_pdf_for_position()
+        if pdf is None:
+            QMessageBox.information(self, "Golden Signing", "Cần ít nhất một PDF trong danh sách.")
+            return
+        from golden_signing.ui.sig_position_dialog import SigPositionDialog
+
+        dlg = SigPositionDialog(pdf, page=self._sig_page, origin=self._sig_origin, parent=self)
+        if dlg.exec() != QDialog.DialogCode.Accepted:
+            return
+        pos = dlg.result_position()
+        if not pos:
+            return
+        page, x, y = pos
+        self._sig_page = page
+        self._sig_origin = (x, y)
+        self._save_active_profile()
+        self.statusBar().showMessage(f"Vị trí chữ ký: trang {page + 1} ({x}, {y})", 4000)
+
+    def _on_verify_pdf(self) -> None:
+        path, _ = QFileDialog.getOpenFileNames(self, "Chọn PDF để xác minh", "", "PDF (*.pdf)")
+        if not path:
+            return
+        from golden_signing.ui.verify_dialog import format_verify_report
+
+        report = format_verify_report(Path(path[0]))
+        QMessageBox.information(self, "Xác minh chữ ký", report)
+
+    def _on_toggle_pause(self) -> None:
+        if self._batch_engine is None:
+            self.statusBar().showMessage("Chưa có batch đang chạy", 3000)
+            return
+        if not self._batch_paused:
+            self._batch_engine.pause()
+            self._batch_paused = True
+            self._pause_btn.setText("Tiếp tục")
+            self.statusBar().showMessage("Batch sẽ tạm dừng sau file hiện tại", 3000)
+        else:
+            self._batch_engine.resume()
+            self._batch_paused = False
+            self._pause_btn.setText("Tạm dừng")
+            jobs = [j for j in self._model.jobs() if not j.is_terminal]
+            if jobs and self._batch_engine is not None:
+                self._run_batch(self._batch_engine, jobs)
+
+    def _on_retry_failed(self) -> None:
+        jobs = list(self._model.jobs())
+        failed = [
+            j
+            for j in jobs
+            if j.state.value
+            in {
+                "PREFLIGHT_FAILED",
+                "SIGN_FAILED",
+                "VERIFY_FAILED",
+                "TOKEN_ERROR",
+                "IO_ERROR",
+                "FINALIZE_FAILED",
+            }
+        ]
+        if not failed:
+            QMessageBox.information(self, "Golden Signing", "Không có file lỗi để ký lại.")
+            return
+        engine = self._token_signer or self._lab_signer
+        if engine is None:
+            QMessageBox.information(self, "Golden Signing", "Hãy ký ít nhất một lần trước.")
+            return
+        from golden_signing.batch.state import JobState
+
+        for j in failed:
+            j.state = JobState.DISCOVERED
+            j.error_code = None
+            j.message = "queued for retry"
+        self._reload_table()
+        self._apply_engine_appearance(engine)
+        profile = self._make_profile(engine)
+        out_dir = self._resolve_output_dir(jobs)
+        batch = BatchEngine(
+            engine, profile, output_dir=out_dir, on_progress=self._on_batch_progress
+        )
+        batch.enqueue_jobs(failed)
+        self._run_batch(batch, failed)
 
     def _custom_logo_path(self) -> Path | None:
         raw = str(self._settings.value("signatureLogoPath", "") or "")
@@ -643,8 +824,18 @@ class MainWindow(QMainWindow):
         folder_btn.clicked.connect(lambda _=False, j=job: self._open_job_folder(j))
         lay.addWidget(open_btn)
         lay.addWidget(folder_btn)
+        if job.error_code or job.message:
+            detail = QPushButton("Chi tiết")
+            detail.setFixedSize(52, 26)
+            detail.clicked.connect(lambda _=False, j=job: self._show_job_error(j))
+            lay.addWidget(detail)
         lay.addStretch(1)
         return wrap
+
+    def _show_job_error(self, job) -> None:  # noqa: ANN001
+        from golden_signing.ui.job_error_dialog import JobErrorDialog
+
+        JobErrorDialog(job, self).exec()
 
     def _open_job_file(self, job) -> None:  # noqa: ANN001
         if job.output_path and Path(job.output_path).exists():
@@ -705,18 +896,8 @@ class MainWindow(QMainWindow):
                 if fp and self._active_fingerprint != fp:
                     self._load_cert_profile(fp, company="Golden Signing Lab")
 
-        profile = pus_safe_profile(certificate_fingerprint_sha256=engine.certificate_fingerprint_sha256)
-        mode_key = self._mode_combo.currentData() or "visible"
-        from golden_signing.signing.contracts import SignatureMode
-
-        profile.mode = SignatureMode.VISIBLE if mode_key == "visible" else SignatureMode.INVISIBLE
-        engine.text_color = self._selected_text_color()
-        engine.show_background = self._bg_enabled()
-        engine.show_logo = self._logo_check.isChecked()
-        engine.logo_path = self._custom_logo_path()
-        # Only attach logo if user picked one for this cert (or global path)
-        if engine.show_logo and engine.logo_path is None:
-            engine.show_logo = False
+        profile = self._make_profile(engine)
+        self._apply_engine_appearance(engine)
         self._save_active_profile()
         out_dir = self._resolve_output_dir(jobs)
         batch = BatchEngine(
@@ -725,37 +906,7 @@ class MainWindow(QMainWindow):
             output_dir=out_dir,
             on_progress=self._on_batch_progress,
         )
-        batch.enqueue_jobs(jobs)
-        self._sign_btn.setEnabled(False)
-        try:
-            result = batch.run()
-        except Exception as exc:  # noqa: BLE001
-            QMessageBox.critical(self, "Golden Signing", f"Lỗi khi ký:\n{exc}")
-            self._sign_btn.setEnabled(True)
-            return
-        finally:
-            self._sign_btn.setEnabled(True)
-
-        self._model.replace_jobs(list(batch.jobs))
-        self._reload_table()
-        self._update_summary()
-
-        failed_msgs = [f"{j.input_path.name}: {j.message}" for j in result.jobs if j.error_code]
-        extra = ("\n\n" + "\n".join(failed_msgs[:5])) if failed_msgs else ""
-        title = "Golden Signing"
-        if result.failed:
-            QMessageBox.warning(
-                self,
-                title,
-                f"Hoàn tất: {result.success} thành công · {result.failed} lỗi · {result.cancelled} hủy\n"
-                f"Thư mục: {out_dir}{extra}",
-            )
-        else:
-            QMessageBox.information(
-                self,
-                title,
-                f"Hoàn tất: {result.success} thành công · 0 lỗi\nThư mục: {out_dir}",
-            )
+        self._run_batch(batch, jobs)
 
     def _on_batch_progress(self, done: int, total: int, job: object) -> None:
         self._summary.setText(f"Đang ký {done}/{total}…")
