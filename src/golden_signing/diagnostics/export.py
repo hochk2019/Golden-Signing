@@ -7,12 +7,13 @@ import platform
 import sys
 import time
 from pathlib import Path
+from typing import Any
 
 __all__ = ["build_diagnostics", "export_diagnostics"]
 
 
-def build_diagnostics() -> dict:
-    info: dict = {
+def build_diagnostics() -> dict[str, Any]:
+    info: dict[str, Any] = {
         "app": "Golden Signing",
         "version": "0.1.0a0",
         "generated_at": time.time(),
