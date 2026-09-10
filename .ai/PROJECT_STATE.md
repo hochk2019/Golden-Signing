@@ -20,14 +20,20 @@ Status legend: DONE | IN_PROGRESS | BLOCKED | TODO | DEFERRED
 | P5-01 | PySide6 main window (minimal) | DONE | mark OK | `ui/main_window.py` | offscreen 5 tests | pytest 0 | manual GUI check |
 | P5-02 | Phase 5 Qt review | DONE | P5-01 | `.ai/reviews/phase5-qt-ui.md` | — | PASS | — |
 | P5-03 | ECA token UI + PIN fix | DONE | P2 | `token_pdf_signer.py`, UI | wrong PIN test | commit 6307786 / 11027d9 | — |
-| P6-01 | Visible signature + output UX | DONE | P5 | `appearance.py`, UI | 6 tests | commit 275ba0c | user GUI check |
+| P6-01 | Visible signature + output UX (original spec) | DONE | P5 | `appearance.py`, UI | 6 tests | commit 275ba0c | user GUI check |
+| P6-02 | Stamp polish (default visible, rich info, fold VN, color+bg toggle, tight box) | DONE | P6-01 | appearance + UI | tests green | 67ee2f3…c91ff55 | user GUI |
+| P6-03 | Token UX (auto-scan, PIN API, compact cert dialog) | DONE | P2 | token_pdf_signer + UI | ECA listed | 6307786 / 11027d9 | — |
+| P6-04 | Empty-password encrypted PDF sign/verify | DONE | P1 | `pdf/crypto.py` | user file test | 5df8c38 | — |
+| P7-00 | Appearance designer / logo in stamp / QR / placement | TODO | P6 | — | — | — | deferred |
+| P7-01 | History / full cert profile page | TODO | P5 | `ui/` | — | — | deferred |
 
 ## Verification evidence
 
 - `pytest -q` — **PASS** exit 0
 - Visible lab sign: field `GoldenSigningVisible` + crypto valid
 - ECA token: cert list + PIN via `token.open(user_pin=)`
+- Empty-password encrypted PDF: preflight not BLOCK; sign+verify OK
 
 ## Status label
 
-`PHASE 2–6 (TOKEN + PUS SAFE + BATCH + UI + VISIBLE SIG) COMPLETE / MANUAL GUI + PUS UPLOAD PENDING`
+`PHASE 2–6 COMPLETE + STAMP/TOKEN POLISH / MANUAL GUI + PUS UPLOAD PENDING`
