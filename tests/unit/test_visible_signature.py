@@ -74,9 +74,32 @@ def test_ui_mode_and_output_controls(qapp: QApplication) -> None:
     win = MainWindow()
     assert win._mode_combo.count() == 2
     assert win._mode_combo.itemData(0) == "invisible"
+    assert win._mode_combo.currentData() == "visible"  # default visible
     assert win._out_edit is not None
     win._out_edit.setText("C:/tmp/out")
     assert win._resolve_output_dir([]) == Path("C:/tmp/out")
-    win._mode_combo.setCurrentIndex(1)
-    assert win._mode_combo.currentData() == "visible"
     win.close()
+
+
+def test_build_stamp_text_includes_company_mst() -> None:
+    from golden_signing.signing.appearance import build_stamp_text
+
+    text = build_stamp_text(
+        company="CÔNG TY TNHH JAEYOUNG VINA",
+        mst="2300944637",
+        serial="aabbccdd",
+        expires="2028-07-06T00:00:00+00:00",
+        when="2026-09-10 12:00",
+    )
+    assert "JAEYOUNG" in text
+    assert "2300944637" in text
+    assert "aabbccdd" in text
+    assert "2028-07-06" in text
+    assert "2026-09-10" in text
+
+
+def test_mst_extract() -> None:
+    from golden_signing.ui.cert_label import mst_from_subject
+
+    s = "User ID: MST:2300944637, Common Name: ABC, Country: VN"
+    assert mst_from_subject(s) == "2300944637"

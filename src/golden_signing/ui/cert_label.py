@@ -5,7 +5,18 @@ from __future__ import annotations
 import re
 from typing import Any
 
-__all__ = ["common_name_from_subject", "short_cert_label"]
+__all__ = [
+    "cert_detail_lines",
+    "common_name_from_subject",
+    "mst_from_subject",
+    "short_cert_label",
+]
+
+_MST_PATTERNS = (
+    re.compile(r"MST[:\s]*([0-9]{8,14})", re.IGNORECASE),
+    re.compile(r"Mã số thuế[:\s]*([0-9]{8,14})", re.IGNORECASE),
+    re.compile(r"OID\.0\.9\.2342\.19200300\.100\.1\.1=([0-9]{8,14})", re.IGNORECASE),
+)
 
 _CN_PATTERNS = (
     re.compile(r"CN=([^,/]+)", re.IGNORECASE),
@@ -35,6 +46,16 @@ def common_name_from_subject(subject: str) -> str:
         else:
             return p
     return s[:40] if s else "Không rõ"
+
+
+def mst_from_subject(subject: str) -> str | None:
+    """Extract MST / tax code from subject if present."""
+    s = " ".join(str(subject or "").split())
+    for pat in _MST_PATTERNS:
+        m = pat.search(s)
+        if m:
+            return m.group(1).strip()
+    return None
 
 
 def short_cert_label(cert: Any) -> str:

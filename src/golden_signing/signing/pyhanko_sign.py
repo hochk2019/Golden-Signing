@@ -13,10 +13,16 @@ def build_sign_call_kwargs(
     profile: SigningProfile | None,
     *,
     signer_display: str | None = None,
+    cert_info: Any | None = None,
 ) -> dict[str, Any]:
     """Return field_name + extra kwargs for pyhanko sign_pdf."""
     visible = profile is not None and profile.mode.value == "visible"
-    extras = signing_extras(profile, visible=visible, signer_display=signer_display)
+    extras = signing_extras(
+        profile,
+        visible=visible,
+        signer_display=signer_display,
+        cert_info=cert_info,
+    )
     field_name = "GoldenSigning"
     if extras.get("field_name"):
         field_name = str(extras["field_name"])
@@ -45,6 +51,7 @@ def pyhanko_sign_file(
     pyhanko_signer: Any,
     profile: SigningProfile | None,
     signer_display: str | None = None,
+    cert_info: Any | None = None,
 ) -> None:
     """Sign input → temp → os.replace(output). Raises on failure."""
     import os
@@ -54,7 +61,9 @@ def pyhanko_sign_file(
 
     from golden_signing.pdf.crypto import open_pdf_reader
 
-    kwargs = build_sign_call_kwargs(profile, signer_display=signer_display)
+    kwargs = build_sign_call_kwargs(
+        profile, signer_display=signer_display, cert_info=cert_info
+    )
     output_path.parent.mkdir(parents=True, exist_ok=True)
     tmp_path = output_path.with_name(f".{output_path.name}.tmp-sign")
     reader = None

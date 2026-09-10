@@ -36,6 +36,7 @@ class TokenPdfSigner:
         self._signing_cert = signing_cert
         self._session = session
         self.certificate_fingerprint_sha256 = ""
+        self.cert_info: object | None = None
         if signing_cert is not None:
             import hashlib
 
@@ -191,7 +192,11 @@ class TokenPdfSigner:
 
         self._session = session
         self._signing_cert = signing_cert
-        self.certificate_fingerprint_sha256 = hashlib.sha256(signing_cert.dump()).hexdigest()
+        self.cert_info: object | None = None
+        if signing_cert is not None:
+            import hashlib
+
+            self.certificate_fingerprint_sha256 = hashlib.sha256(signing_cert.dump()).hexdigest()
 
     def _make_pyhanko_signer(self) -> Any:
         if self._session is None or self._signing_cert is None:
@@ -261,6 +266,7 @@ class TokenPdfSigner:
                 pyhanko_signer=py_signer,
                 profile=profile,
                 signer_display=None,
+                cert_info=self.cert_info,
             )
             if sha256_file(input_path) != source_hash_before:
                 output_path.unlink(missing_ok=True)

@@ -239,6 +239,7 @@ class MainWindow(QMainWindow):
         self._mode_combo = QComboBox()
         self._mode_combo.addItem("Vô hình — không đổi giao diện", userData="invisible")
         self._mode_combo.addItem("Hiển thị trên PDF", userData="visible")
+        self._mode_combo.setCurrentIndex(1)  # default visible
         mode_row.addWidget(self._mode_combo)
         mode_row.addStretch(1)
         self._open_folder_btn = QPushButton("Mở thư mục")
@@ -419,12 +420,16 @@ class MainWindow(QMainWindow):
             pin = ""  # noqa: PLW0642 — drop local ref
         signer = TokenPdfSigner(dll)
         signer.bind_session(session, asn1_cert)
+        signer.cert_info = chosen
         if getattr(chosen, "fingerprint_sha256", ""):
             signer.certificate_fingerprint_sha256 = chosen.fingerprint_sha256
         self._token_signer = signer
-        self._profile_label.setText(f"Profile: PUS Safe · {_ellipsis(chosen.subject, 32)}")
+        from golden_signing.ui.cert_label import common_name_from_subject
+
+        cn = common_name_from_subject(chosen.subject)
+        self._profile_label.setText(f"Profile: PUS Safe · {_ellipsis(cn, 32)}")
         self._token_note.setText(
-            f"Đã kết nối: {_ellipsis(chosen.subject, 40)}\nToken: {chosen.token_label or 'USB'}"
+            f"Đã kết nối: {_ellipsis(cn, 40)}\nToken: {chosen.token_label or 'USB'}"
         )
         return signer
 
@@ -503,11 +508,10 @@ class MainWindow(QMainWindow):
                 self._profile_label.setText("Profile: PUS Safe · lab (test cert)")
 
         profile = pus_safe_profile(certificate_fingerprint_sha256=engine.certificate_fingerprint_sha256)
-        mode_key = self._mode_combo.currentData() or "invisible"
-        if mode_key == "visible":
-            from golden_signing.signing.contracts import SignatureMode
+        mode_key = self._mode_combo.currentData() or "visible"
+        from golden_signing.signing.contracts import SignatureMode
 
-            profile.mode = SignatureMode.VISIBLE
+        profile.mode = SignatureMode.VISIBLE if mode_key == "visible" else SignatureMode.INVISIBLE
         out_dir = self._resolve_output_dir(jobs)
         batch = BatchEngine(
             engine,

@@ -34,6 +34,7 @@ class TestCertPdfSigner:  # noqa: N801 — lab engine, not a pytest test class
         self._key = key
         self._signer = to_simple_signer(cert, key)
         self.certificate_fingerprint_sha256 = certificate_fingerprint_sha256(cert)
+        self.cert_info: object | None = None
 
     def preflight(self, input_path: Path, profile: SigningProfile) -> object:
         from golden_signing.pdf.inspection import preflight_pdf
@@ -94,7 +95,8 @@ class TestCertPdfSigner:  # noqa: N801 — lab engine, not a pytest test class
                 output_path=output_path,
                 pyhanko_signer=self._signer,
                 profile=profile,
-                signer_display="Lab Test Certificate",
+                signer_display="Golden Signing Lab",
+                cert_info=self.cert_info,
             )
             # Source must be untouched before promote
             if sha256_file(input_path) != source_hash_before:
