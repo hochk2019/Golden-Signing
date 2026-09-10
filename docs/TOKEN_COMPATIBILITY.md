@@ -39,7 +39,7 @@ Hardware verification (user device required):
 
 | Token / CA | PKCS#11 DLL | Slot | Cert subject | Key | Backend | Notes |
 |---|---|---|---|---|---|---|
-| TBD | | | | | | user device |
+| ECA Token v1.0 (ePass2003Auto) | `C:\Windows\System32\eca_csp11_v1.dll` | FT ePass2003Auto 0 | CÔNG TY TNHH JAEYOUNG VINA (MST:2300944637) | RSA (private key needs PIN) | pkcs11 | Detected 2026-09-09; wrong PIN → TokenError; full sign needs user PIN in UI |
 
 ## PUS note
 

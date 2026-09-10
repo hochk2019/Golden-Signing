@@ -1,4 +1,4 @@
-"""Golden Signing main window — Phase 5 minimal usable UI."""
+"""Golden Signing main window — token-aware Phase 5 UI."""
 
 from __future__ import annotations
 
@@ -7,11 +7,16 @@ from pathlib import Path
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QDragEnterEvent, QDropEvent
 from PySide6.QtWidgets import (
+    QComboBox,
+    QDialog,
+    QDialogButtonBox,
     QFileDialog,
     QFrame,
     QHBoxLayout,
     QHeaderView,
+    QInputDialog,
     QLabel,
+    QLineEdit,
     QMainWindow,
     QMessageBox,
     QPushButton,
@@ -24,6 +29,8 @@ from PySide6.QtWidgets import (
 from golden_signing.batch.queue import BatchEngine
 from golden_signing.signing.pdf_signer import TestCertPdfSigner
 from golden_signing.signing.profiles import pus_safe_profile
+from golden_signing.signing.token_pdf_signer import TokenPdfSigner
+from golden_signing.token.discovery import discover_pkcs11_libraries
 from golden_signing.ui.file_table import FileJobTableModel
 from golden_signing.ui.theme import apply_theme
 
@@ -31,10 +38,32 @@ __all__ = ["MainWindow"]
 
 
 def _brand_mark_path() -> Path:
-    # repo-relative: src/golden_signing/ui → repo root assets
     here = Path(__file__).resolve()
     root = here.parents[3]
     return root / "assets" / "branding" / "golden-mark.png"
+
+
+class CertPickerDialog(QDialog):
+    def __init__(self, certs: list, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setWindowTitle("Chọn chứng thư số")
+        self.setMinimumWidth(520)
+        lay = QVBoxLayout(self)
+        lay.addWidget(QLabel("Token USB đã phát hiện. Chọn chứng thư để ký:"))
+        self._combo = QComboBox()
+        for c in certs:
+            self._combo.addItem(
+                f"{c.subject[:80]} | {c.token_label or ''} | hết hạn {c.not_valid_after}",
+                userData=c,
+            )
+        lay.addWidget(self._combo)
+        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
+        buttons.accepted.connect(self.accept)
+        buttons.rejected.connect(self.reject)
+        lay.addWidget(buttons)
+
+    def selected_cert(self):  # noqa: ANN201
+        return self._combo.currentData()
 
 
 class MainWindow(QMainWindow):
@@ -45,18 +74,21 @@ class MainWindow(QMainWindow):
         self.setAcceptDrops(True)
 
         self._model = FileJobTableModel(self)
-        self._engine: TestCertPdfSigner | None = None
+        self._token_signer: TokenPdfSigner | None = None
+        self._lab_signer: TestCertPdfSigner | None = None
+        self._nav_buttons: list[QPushButton] = []
 
         central = QWidget()
         root = QHBoxLayout(central)
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(0)
-
         root.addWidget(self._build_rail())
         root.addWidget(self._build_workspace(), stretch=1)
         self.setCentralWidget(central)
         self._update_summary()
         self._sign_btn.setEnabled(False)
+        # Do not touch PKCS#11 at construction (token may already be loaded in-process).
+        self._token_note.setText("Nhấn “Quét token” hoặc bấm KÝ SỐ để kết nối USB token.")
 
     def _build_rail(self) -> QFrame:
         rail = QFrame()
@@ -84,18 +116,25 @@ class MainWindow(QMainWindow):
         sub.setObjectName("productSub")
         lay.addWidget(title)
         lay.addWidget(sub)
-        lay.addSpacing(24)
+        lay.addSpacing(16)
 
-        for label in ("Ký tài liệu", "Hồ sơ ký", "Cài đặt", "Giới thiệu"):
+        for label, handler in (
+            ("Ký tài liệu", self._nav_sign_docs),
+            ("Hồ sơ ký", self._nav_profiles),
+            ("Cài đặt", self._nav_settings),
+            ("Giới thiệu", self._nav_about),
+        ):
             btn = QPushButton(label)
             btn.setFlat(True)
             btn.setCursor(Qt.CursorShape.PointingHandCursor)
+            btn.clicked.connect(handler)
+            self._nav_buttons.append(btn)
             lay.addWidget(btn)
         lay.addStretch(1)
-        note = QLabel("Lab certificate\nChưa kết nối USB token")
-        note.setObjectName("productSub")
-        note.setWordWrap(True)
-        lay.addWidget(note)
+        self._token_note = QLabel("Đang kiểm tra token…")
+        self._token_note.setObjectName("productSub")
+        self._token_note.setWordWrap(True)
+        lay.addWidget(self._token_note)
         return rail
 
     def _build_workspace(self) -> QWidget:
@@ -111,18 +150,20 @@ class MainWindow(QMainWindow):
         drop = QLabel("Kéo thả PDF vào đây")
         drop.setObjectName("dropHint")
         drop.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._drop = drop
         lay.addWidget(drop)
 
         actions = QHBoxLayout()
         self._add_btn = QPushButton("Thêm PDF")
         self._add_dir_btn = QPushButton("Thêm thư mục")
+        self._rescan_btn = QPushButton("Quét token")
         self._add_btn.clicked.connect(self._on_add_files)
         self._add_dir_btn.clicked.connect(self._on_add_folder)
+        self._rescan_btn.clicked.connect(self._on_rescan_token)
         actions.addWidget(self._add_btn)
         actions.addWidget(self._add_dir_btn)
+        actions.addWidget(self._rescan_btn)
         actions.addStretch(1)
-        self._profile_label = QLabel("Profile: PUS Safe · Chứng thư: lab (test cert)")
+        self._profile_label = QLabel("Profile: PUS Safe")
         self._profile_label.setObjectName("goldAccent")
         actions.addWidget(self._profile_label)
         lay.addLayout(actions)
@@ -148,7 +189,102 @@ class MainWindow(QMainWindow):
         lay.addLayout(footer)
         return ws
 
-    # --- drag/drop ----------------------------------------------------
+    # --- nav stubs ----------------------------------------------------
+
+    def _nav_sign_docs(self) -> None:
+        self.statusBar().showMessage("Đang ở màn Ký tài liệu", 3000)
+
+    def _nav_profiles(self) -> None:
+        QMessageBox.information(
+            self,
+            "Hồ sơ ký",
+            "Hồ sơ ký sẽ gắn theo chứng thư (Phase 6).\nHiện dùng profile PUS Safe mặc định.",
+        )
+
+    def _nav_settings(self) -> None:
+        QMessageBox.information(self, "Cài đặt", "Cài đặt chi tiết sẽ bổ sung ở phase sau.")
+
+    def _nav_about(self) -> None:
+        QMessageBox.information(
+            self,
+            "Giới thiệu",
+            "Golden Signing\nPDF Digital Signature Utility\n"
+            "Developer: HOC HK\nhochk2019@gmail.com · 0868.333.606\n"
+            "Phiên bản 0.1.0-alpha\n\n"
+            "Miễn trừ: công cụ hỗ trợ ký số; không đảm bảo mọi hệ thống bên thứ ba chấp nhận.",
+        )
+
+    # --- token --------------------------------------------------------
+
+    def _refresh_token_label(self) -> None:
+        dlls = discover_pkcs11_libraries()
+        if not dlls:
+            self._token_note.setText("Chưa tìm thấy PKCS#11.\nCó thể ký bằng lab cert (test).")
+            return
+        try:
+            certs = TokenPdfSigner.list_certificates(dlls[0])
+            if certs:
+                c = certs[0]
+                self._token_note.setText(
+                    f"Token: {c.token_label or 'USB'}\n{c.subject[:48]}…"
+                )
+                self._profile_label.setText("Profile: PUS Safe · Token USB")
+            else:
+                self._token_note.setText(f"PKCS#11: {dlls[0].name}\nChưa thấy chứng thư.")
+        except Exception as exc:  # noqa: BLE001
+            self._token_note.setText(f"Token lỗi: {exc}\nCó thể thử lab cert.")
+
+    def _on_rescan_token(self) -> None:
+        self._token_signer = None
+        self._refresh_token_label()
+        self.statusBar().showMessage("Đã quét lại token", 3000)
+
+    def _ensure_token_engine(self) -> TokenPdfSigner | None:
+        dlls = discover_pkcs11_libraries()
+        if not dlls:
+            return None
+        dll = dlls[0]
+        try:
+            certs = TokenPdfSigner.list_certificates(dll)
+        except Exception as exc:  # noqa: BLE001
+            QMessageBox.warning(self, "Token", f"Không đọc được token:\n{exc}")
+            return None
+        if not certs:
+            QMessageBox.warning(self, "Token", "Token không có chứng thư số.")
+            return None
+        dlg = CertPickerDialog(certs, self)
+        if dlg.exec() != QDialog.DialogCode.Accepted:
+            return None
+        chosen = dlg.selected_cert()
+        if chosen is None:
+            return None
+        pin, ok = QInputDialog.getText(
+            self,
+            "PIN token",
+            "Nhập PIN chữ ký số (không lưu PIN):",
+            QLineEdit.EchoMode.Password,
+        )
+        if not ok or not pin:
+            return None
+        try:
+            session, asn1_cert = TokenPdfSigner.open_session_with_pin(
+                dll, pin, cert_label=None
+            )
+        except Exception as exc:  # noqa: BLE001
+            QMessageBox.critical(self, "Token", f"Đăng nhập token thất bại:\n{exc}")
+            return None
+        finally:
+            pin = ""  # noqa: PLW0642 — drop local ref
+        signer = TokenPdfSigner(dll)
+        signer.bind_session(session, asn1_cert)
+        # fingerprint from selected cert if available
+        if getattr(chosen, "fingerprint_sha256", ""):
+            signer.certificate_fingerprint_sha256 = chosen.fingerprint_sha256
+        self._token_signer = signer
+        self._profile_label.setText(f"Profile: PUS Safe · {chosen.subject[:40]}")
+        return signer
+
+    # --- files / drag -------------------------------------------------
 
     def dragEnterEvent(self, event: QDragEnterEvent) -> None:  # noqa: N802
         if event.mimeData().hasUrls():
@@ -194,19 +330,38 @@ class MainWindow(QMainWindow):
         if folder:
             self.add_paths([Path(folder)])
 
+    # --- sign ---------------------------------------------------------
+
     def _on_sign(self) -> None:
         jobs = [j for j in self._model.jobs() if not j.is_terminal]
         if not jobs:
             QMessageBox.information(self, "Golden Signing", "Không có file chờ ký.")
             return
-        if self._engine is None:
-            self._engine = TestCertPdfSigner()
-        profile = pus_safe_profile(
-            certificate_fingerprint_sha256=self._engine.certificate_fingerprint_sha256
-        )
+
+        engine = self._token_signer
+        if engine is None:
+            use_token = QMessageBox.question(
+                self,
+                "Chọn phương thức ký",
+                "Thử ký bằng USB token (khuyến nghị)?\n"
+                "Chọn No để dùng lab certificate (chỉ test).",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.Yes,
+            )
+            if use_token == QMessageBox.StandardButton.Yes:
+                engine = self._ensure_token_engine()
+                if engine is None:
+                    return
+            else:
+                if self._lab_signer is None:
+                    self._lab_signer = TestCertPdfSigner()
+                engine = self._lab_signer
+                self._profile_label.setText("Profile: PUS Safe · lab (test cert)")
+
+        profile = pus_safe_profile(certificate_fingerprint_sha256=engine.certificate_fingerprint_sha256)
         out_dir = jobs[0].input_path.parent / "signed"
         batch = BatchEngine(
-            self._engine,
+            engine,
             profile,
             output_dir=out_dir,
             on_progress=self._on_batch_progress,
@@ -215,21 +370,36 @@ class MainWindow(QMainWindow):
         self._sign_btn.setEnabled(False)
         try:
             result = batch.run()
+        except Exception as exc:  # noqa: BLE001
+            QMessageBox.critical(self, "Golden Signing", f"Lỗi khi ký:\n{exc}")
+            self._sign_btn.setEnabled(True)
+            return
         finally:
             self._sign_btn.setEnabled(True)
+
         self._model.replace_jobs(list(batch.jobs))
         self._reload_table()
         self._update_summary()
-        QMessageBox.information(
-            self,
-            "Golden Signing",
-            f"Hoàn tất: {result.success} thành công · {result.failed} lỗi · {result.cancelled} hủy\n"
-            f"Thư mục: {out_dir}",
-        )
+
+        failed_msgs = [f"{j.input_path.name}: {j.message}" for j in result.jobs if j.error_code]
+        extra = ("\n\n" + "\n".join(failed_msgs[:5])) if failed_msgs else ""
+        title = "Golden Signing"
+        if result.failed:
+            QMessageBox.warning(
+                self,
+                title,
+                f"Hoàn tất: {result.success} thành công · {result.failed} lỗi · {result.cancelled} hủy\n"
+                f"Thư mục: {out_dir}{extra}",
+            )
+        else:
+            QMessageBox.information(
+                self,
+                title,
+                f"Hoàn tất: {result.success} thành công · 0 lỗi\nThư mục: {out_dir}",
+            )
 
     def _on_batch_progress(self, done: int, total: int, job: object) -> None:
         self._summary.setText(f"Đang ký {done}/{total}…")
-        # keep UI responsive
         from PySide6.QtWidgets import QApplication
 
         QApplication.processEvents()

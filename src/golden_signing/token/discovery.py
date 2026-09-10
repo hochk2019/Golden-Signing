@@ -20,11 +20,14 @@ _DEFAULT_RELATIVE: tuple[str, ...] = (
 )
 
 _SYSTEM32_NAMES: tuple[str, ...] = (
+    "eca_csp11_v1.dll",
     "opensc-pkcs11.dll",
     "eps2003csp11.dll",
     "aetpkss1.dll",
     "eTPKCS11.dll",
     "PKCS11.dll",
+    "vnptca_p11_v10.dll",
+    "fptca_v4.dll",
 )
 
 
