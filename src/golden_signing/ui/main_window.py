@@ -225,11 +225,17 @@ class MainWindow(QMainWindow):
 
         self._table = QTableWidget(0, 3)
         self._table.setHorizontalHeaderLabels(["Tên file", "Trạng thái", "Hành động"])
-        self._table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
-        self._table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
-        self._table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
+        header = self._table.horizontalHeader()
+        header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+        header.setSectionResizeMode(1, QHeaderView.ResizeMode.Fixed)
+        header.setSectionResizeMode(2, QHeaderView.ResizeMode.Fixed)
+        self._table.setColumnWidth(1, 100)
+        self._table.setColumnWidth(2, 132)
+        header.setStretchLastSection(False)
         self._table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self._table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        self._table.setWordWrap(False)
+        self._table.verticalHeader().setDefaultSectionSize(36)
         lay.addWidget(self._table, stretch=1)
 
         # Output folder
@@ -297,10 +303,8 @@ class MainWindow(QMainWindow):
         mode_row.addWidget(self._logo_pick_btn)
         mode_row.addStretch(1)
         self._open_folder_btn = QPushButton("Mở thư mục")
-        self._open_file_btn = QPushButton("Mở file đã chọn")
         self._clear_btn = QPushButton("Xóa khỏi danh sách")
         self._open_folder_btn.clicked.connect(self._on_open_output_folder)
-        self._open_file_btn.clicked.connect(self._on_open_signed_file)
         self._clear_btn.clicked.connect(self._on_clear_selected)
         mode_row.addWidget(self._open_folder_btn)
         mode_row.addWidget(self._clear_btn)
@@ -431,18 +435,6 @@ class MainWindow(QMainWindow):
         folder.mkdir(parents=True, exist_ok=True)
         self._open_path(folder)
 
-    def _on_open_signed_file(self) -> None:
-        rows = self._table.selectionModel().selectedRows() if self._table.selectionModel() else []
-        if not rows:
-            QMessageBox.information(self, "Golden Signing", "Hãy chọn một dòng trong danh sách.")
-            return
-        job = self._model.jobs()[rows[0].row()]
-        target = job.output_path
-        if target is None or not Path(target).exists():
-            QMessageBox.warning(self, "Golden Signing", "File đã ký chưa tồn tại cho dòng này.")
-            return
-        self._open_path(Path(target))
-
     def _on_clear_selected(self) -> None:
         rows = sorted(
             (i.row() for i in self._table.selectionModel().selectedRows()),
@@ -483,11 +475,14 @@ class MainWindow(QMainWindow):
         self.statusBar().showMessage("Đang ở màn Ký tài liệu", 3000)
 
     def _nav_profiles(self) -> None:
-        QMessageBox.information(
-            self,
-            "Hồ sơ ký",
-            "Hồ sơ ký sẽ gắn theo chứng thư (Phase 6).\nHiện dùng profile PUS Safe mặc định.",
-        )
+        from golden_signing.ui.profiles_dialog import ProfilesDialog
+
+        dlg = ProfilesDialog(self._cert_store, self)
+        dlg.exec()
+        # If user deleted active profile, reset UI defaults
+        if self._active_fingerprint and self._cert_store.get(self._active_fingerprint) is None:
+            self._logo_check.setChecked(False)
+            self.statusBar().showMessage("Hồ sơ chứng thư đang dùng đã bị xóa", 4000)
 
     def _nav_settings(self) -> None:
         dlg = SettingsDialog(self._settings, self)
@@ -637,17 +632,18 @@ class MainWindow(QMainWindow):
 
         wrap = QWidget()
         lay = QHBoxLayout(wrap)
-        lay.setContentsMargins(4, 2, 4, 2)
-        lay.setSpacing(4)
+        lay.setContentsMargins(4, 4, 4, 4)
+        lay.setSpacing(6)
         open_btn = QPushButton("Mở")
-        open_btn.setFixedHeight(24)
+        open_btn.setFixedSize(52, 26)
         open_btn.setEnabled(bool(job.output_path and Path(job.output_path).exists()))
         open_btn.clicked.connect(lambda _=False, j=job: self._open_job_file(j))
         folder_btn = QPushButton("Folder")
-        folder_btn.setFixedHeight(24)
+        folder_btn.setFixedSize(58, 26)
         folder_btn.clicked.connect(lambda _=False, j=job: self._open_job_folder(j))
         lay.addWidget(open_btn)
         lay.addWidget(folder_btn)
+        lay.addStretch(1)
         return wrap
 
     def _open_job_file(self, job) -> None:  # noqa: ANN001
