@@ -19,12 +19,15 @@ Status legend: DONE | IN_PROGRESS | BLOCKED | TODO | DEFERRED
 | P5-00 | UI/UX Pro Max brief + tokens + branding assets | DONE | — | `docs/design/`, `assets/branding/` | — | design gate PASS | human glance mark |
 | P5-01 | PySide6 main window (minimal) | DONE | mark OK | `ui/main_window.py` | offscreen 5 tests | pytest 0 | manual GUI check |
 | P5-02 | Phase 5 Qt review | DONE | P5-01 | `.ai/reviews/phase5-qt-ui.md` | — | PASS | — |
+| P5-03 | ECA token UI + PIN fix | DONE | P2 | `token_pdf_signer.py`, UI | wrong PIN test | commit 6307786 / 11027d9 | — |
+| P6-01 | Visible signature + output UX | DONE | P5 | `appearance.py`, UI | 6 tests | commit 275ba0c | user GUI check |
 
-## Verification evidence (Phase 2–5)
+## Verification evidence
 
-- `pytest -q` — **PASS** exit 0 (incl. offscreen UI)
-- PySide6 **6.11.2** via `uv sync --extra ui`
+- `pytest -q` — **PASS** exit 0
+- Visible lab sign: field `GoldenSigningVisible` + crypto valid
+- ECA token: cert list + PIN via `token.open(user_pin=)`
 
 ## Status label
 
-`PHASE 2–5 MINIMAL UI COMPLETE / MANUAL GUI + REAL TOKEN + PUS UPLOAD PENDING`
+`PHASE 2–6 (TOKEN + PUS SAFE + BATCH + UI + VISIBLE SIG) COMPLETE / MANUAL GUI + PUS UPLOAD PENDING`
