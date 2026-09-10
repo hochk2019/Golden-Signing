@@ -11,7 +11,7 @@ from golden_signing.batch.state import JobState, SigningJob
 
 __all__ = ["FileJobTableModel"]
 
-_HEADERS = ("Tên file", "Trạng thái", "Thông điệp")
+_HEADERS = ("Tên file", "Trạng thái", "Hành động")
 
 
 class FileJobTableModel(QAbstractTableModel):
@@ -40,8 +40,15 @@ class FileJobTableModel(QAbstractTableModel):
             if index.column() == 0:
                 return job.input_path.name
             if index.column() == 1:
-                return job.state.value
-            return job.message
+                state = job.state.value
+                if job.error_code and job.message:
+                    return f"{state}"
+                return state
+            return ""
+        if role == Qt.ItemDataRole.ToolTipRole and index.column() == 1:
+            if job.message:
+                return f"{job.state.value}: {job.message}"
+            return job.state.value
         return None
 
     def headerData(  # noqa: N802

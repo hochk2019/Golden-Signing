@@ -31,8 +31,11 @@ from golden_signing.signing.appearance import DEFAULT_TEXT_COLORS
 from golden_signing.signing.pdf_signer import TestCertPdfSigner
 from golden_signing.signing.profiles import pus_safe_profile
 from golden_signing.signing.token_pdf_signer import TokenPdfSigner
+from golden_signing.storage.cert_profiles import CertProfile, CertProfileStore
 from golden_signing.token.discovery import discover_pkcs11_libraries
+from golden_signing.ui.cert_label import common_name_from_subject
 from golden_signing.ui.file_table import FileJobTableModel
+from golden_signing.ui.settings_dialog import SettingsDialog
 from golden_signing.ui.theme import apply_theme
 
 __all__ = ["MainWindow"]
@@ -119,6 +122,11 @@ class MainWindow(QMainWindow):
         self._token_signer: TokenPdfSigner | None = None
         self._lab_signer: TestCertPdfSigner | None = None
         self._nav_buttons: list[QPushButton] = []
+        self._cert_store = CertProfileStore()
+        self._active_fingerprint: str | None = None
+        from PySide6.QtCore import QSettings
+
+        self._settings = QSettings("HOCHK", "GoldenSigning")
 
         central = QWidget()
         root = QHBoxLayout(central)
@@ -130,10 +138,12 @@ class MainWindow(QMainWindow):
         self._update_summary()
         self._sign_btn.setEnabled(False)
         self._token_note.setText("Đang quét USB token…")
-        # Auto-scan shortly after show (list certs only — no PIN).
         from PySide6.QtCore import QTimer
 
-        QTimer.singleShot(400, self._refresh_token_label)
+        if str(self._settings.value("autoScanToken", "1")) not in ("0", "false", "False"):
+            QTimer.singleShot(400, self._refresh_token_label)
+        else:
+            self._token_note.setText("Tự quét token đã tắt (Cài đặt).")
 
     def _build_rail(self) -> QFrame:
         rail = QFrame()
@@ -214,10 +224,10 @@ class MainWindow(QMainWindow):
         lay.addLayout(actions)
 
         self._table = QTableWidget(0, 3)
-        self._table.setHorizontalHeaderLabels(["Tên file", "Trạng thái", "Thông điệp"])
+        self._table.setHorizontalHeaderLabels(["Tên file", "Trạng thái", "Hành động"])
         self._table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
         self._table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
-        self._table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
+        self._table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
         self._table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self._table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         lay.addWidget(self._table, stretch=1)
@@ -241,6 +251,10 @@ class MainWindow(QMainWindow):
         self._mode_combo.addItem("Vô hình — không đổi giao diện", userData="invisible")
         self._mode_combo.addItem("Hiển thị trên PDF", userData="visible")
         self._mode_combo.setCurrentIndex(1)  # default visible
+        saved_mode = str(self._settings.value("defaultSignatureMode", "visible"))
+        if saved_mode == "invisible":
+            self._mode_combo.setCurrentIndex(0)
+        self._mode_combo.currentIndexChanged.connect(lambda _i: self._save_active_profile())
         mode_row.addWidget(self._mode_combo)
         mode_row.addWidget(QLabel("Màu chữ ký:"))
         self._color_combo = QComboBox()
@@ -254,9 +268,6 @@ class MainWindow(QMainWindow):
         }
         for key, rgb in DEFAULT_TEXT_COLORS.items():
             self._color_combo.addItem(color_labels.get(key, key), userData=(key, rgb))
-        from PySide6.QtCore import QSettings
-
-        self._settings = QSettings("HOCHK", "GoldenSigning")
         saved_key = str(self._settings.value("signatureTextColor", "navy"))
         for i in range(self._color_combo.count()):
             item = self._color_combo.itemData(i)
@@ -273,11 +284,11 @@ class MainWindow(QMainWindow):
         self._bg_check.toggled.connect(self._on_bg_toggled)
         mode_row.addWidget(self._bg_check)
         self._logo_check = QCheckBox("Logo")
-        logo_ok = (Path(__file__).resolve().parents[3] / "assets" / "branding" / "golden-mark.png").is_file()
+        # Default OFF: only certs with their own logo profile should get a stamp logo.
         self._logo_check.setChecked(
-            logo_ok and str(self._settings.value("signatureLogo", "1")) not in ("0", "false", "False")
+            str(self._settings.value("signatureLogo", "0")) not in ("0", "false", "False")
         )
-        self._logo_check.setToolTip("Hiện logo Golden Logistics bên trái ô chữ ký")
+        self._logo_check.setToolTip("Logo riêng theo chứng thư (Chọn logo…); không dùng logo mặc định nếu chưa chọn")
         self._logo_check.toggled.connect(self._on_logo_toggled)
         mode_row.addWidget(self._logo_check)
         self._logo_pick_btn = QPushButton("Chọn logo…")
@@ -292,7 +303,6 @@ class MainWindow(QMainWindow):
         self._open_file_btn.clicked.connect(self._on_open_signed_file)
         self._clear_btn.clicked.connect(self._on_clear_selected)
         mode_row.addWidget(self._open_folder_btn)
-        mode_row.addWidget(self._open_file_btn)
         mode_row.addWidget(self._clear_btn)
         lay.addLayout(mode_row)
 
@@ -308,17 +318,70 @@ class MainWindow(QMainWindow):
         lay.addLayout(footer)
         return ws
 
+    def _on_logo_toggled(self, checked: bool) -> None:
+        self._settings.setValue("signatureLogo", "1" if checked else "0")
+        self._save_active_profile()
+
+    def _on_bg_toggled(self, checked: bool) -> None:
+        self._settings.setValue("signatureBg", "1" if checked else "0")
+        self._save_active_profile()
+
     def _on_color_changed(self, index: int) -> None:
         data = self._color_combo.itemData(index)
         if data:
             key, _rgb = data
             self._settings.setValue("signatureTextColor", key)
+            self._save_active_profile()
 
-    def _on_bg_toggled(self, checked: bool) -> None:
-        self._settings.setValue("signatureBg", "1" if checked else "0")
+    def _current_color_key(self) -> str:
+        data = self._color_combo.currentData()
+        return data[0] if data else "navy"
 
-    def _on_logo_toggled(self, checked: bool) -> None:
-        self._settings.setValue("signatureLogo", "1" if checked else "0")
+    def _load_cert_profile(self, fingerprint: str, company: str = "") -> None:
+        """Apply saved profile for this cert (or defaults if none)."""
+        self._active_fingerprint = fingerprint or None
+        prof = self._cert_store.get(fingerprint)
+        if prof is None:
+            # No profile → logo off, use app defaults for color/bg/mode
+            self._logo_check.setChecked(False)
+            self._logo_pick_btn.setEnabled(True)
+            return
+        # mode
+        idx = 0 if prof.signature_mode == "visible" else 1
+        self._mode_combo.setCurrentIndex(idx)
+        # color
+        for i in range(self._color_combo.count()):
+            item = self._color_combo.itemData(i)
+            if item and item[0] == prof.text_color_key:
+                self._color_combo.setCurrentIndex(i)
+                break
+        self._bg_check.setChecked(prof.show_background)
+        self._logo_check.setChecked(bool(prof.show_logo and prof.logo_path))
+        if prof.logo_path:
+            self._settings.setValue("signatureLogoPath", prof.logo_path)
+        self.statusBar().showMessage(f"Đã nạp hồ sơ chứng thư: {company or fingerprint[:16]}", 3000)
+
+    def _save_active_profile(self) -> None:
+        fp = self._active_fingerprint
+        if not fp:
+            return
+        logo_path = str(self._settings.value("signatureLogoPath", "") or "")
+        show_logo = self._logo_check.isChecked() and bool(logo_path)
+        mode_key = self._mode_combo.currentData() or "visible"
+        company = ""
+        engine = self._token_signer or self._lab_signer
+        if engine is not None and getattr(engine, "cert_info", None) is not None:
+            company = common_name_from_subject(str(engine.cert_info.subject))
+        prof = CertProfile(
+            fingerprint=fp,
+            company=company,
+            text_color_key=self._current_color_key(),
+            show_logo=show_logo,
+            logo_path=logo_path if show_logo else "",
+            show_background=self._bg_check.isChecked(),
+            signature_mode=str(mode_key),
+        )
+        self._cert_store.upsert(prof)
 
     def _on_pick_logo(self) -> None:
         path, _ = QFileDialog.getOpenFileName(
@@ -328,6 +391,7 @@ class MainWindow(QMainWindow):
             return
         self._settings.setValue("signatureLogoPath", path)
         self._logo_check.setChecked(True)
+        self._save_active_profile()
         self.statusBar().showMessage(f"Logo chữ ký: {Path(path).name}", 4000)
 
     def _custom_logo_path(self) -> Path | None:
@@ -354,6 +418,9 @@ class MainWindow(QMainWindow):
         text = self._out_edit.text().strip()
         if text:
             return Path(text)
+        default_dir = str(self._settings.value("defaultOutputDir", "") or "")
+        if default_dir:
+            return Path(default_dir)
         if jobs:
             return jobs[0].input_path.parent / "signed"
         return Path.cwd() / "signed"
@@ -423,7 +490,21 @@ class MainWindow(QMainWindow):
         )
 
     def _nav_settings(self) -> None:
-        QMessageBox.information(self, "Cài đặt", "Cài đặt chi tiết sẽ bổ sung ở phase sau.")
+        dlg = SettingsDialog(self._settings, self)
+        dlg.exec()
+        # apply defaults that affect live UI
+        saved_mode = str(self._settings.value("defaultSignatureMode", "visible"))
+        idx = 0 if saved_mode == "visible" else 1
+        self._mode_combo.setCurrentIndex(idx)
+        saved_color = str(self._settings.value("signatureTextColor", "navy"))
+        for i in range(self._color_combo.count()):
+            item = self._color_combo.itemData(i)
+            if item and item[0] == saved_color:
+                self._color_combo.setCurrentIndex(i)
+                break
+        self._bg_check.setChecked(
+            str(self._settings.value("signatureBg", "1")) not in ("0", "false", "False")
+        )
 
     def _nav_about(self) -> None:
         QMessageBox.information(
@@ -504,12 +585,14 @@ class MainWindow(QMainWindow):
         if getattr(chosen, "fingerprint_sha256", ""):
             signer.certificate_fingerprint_sha256 = chosen.fingerprint_sha256
         self._token_signer = signer
-        from golden_signing.ui.cert_label import common_name_from_subject
-
         cn = common_name_from_subject(chosen.subject)
         self._profile_label.setText(f"Profile: PUS Safe · {_ellipsis(cn, 32)}")
         self._token_note.setText(
             f"Đã kết nối: {_ellipsis(cn, 40)}\nToken: {chosen.token_label or 'USB'}"
+        )
+        self._load_cert_profile(
+            getattr(chosen, "fingerprint_sha256", "") or "",
+            company=cn,
         )
         return signer
 
@@ -541,9 +624,45 @@ class MainWindow(QMainWindow):
         jobs = self._model.jobs()
         self._table.setRowCount(len(jobs))
         for row, job in enumerate(jobs):
-            self._table.setItem(row, 0, QTableWidgetItem(job.input_path.name))
-            self._table.setItem(row, 1, QTableWidgetItem(job.state.value))
-            self._table.setItem(row, 2, QTableWidgetItem(job.message))
+            name_item = QTableWidgetItem(job.input_path.name)
+            self._table.setItem(row, 0, name_item)
+            status = QTableWidgetItem(job.state.value)
+            if job.message:
+                status.setToolTip(f"{job.state.value}: {job.message}")
+            self._table.setItem(row, 1, status)
+            self._table.setCellWidget(row, 2, self._make_action_widget(job))
+
+    def _make_action_widget(self, job) -> QWidget:  # noqa: ANN001
+        from PySide6.QtWidgets import QWidget
+
+        wrap = QWidget()
+        lay = QHBoxLayout(wrap)
+        lay.setContentsMargins(4, 2, 4, 2)
+        lay.setSpacing(4)
+        open_btn = QPushButton("Mở")
+        open_btn.setFixedHeight(24)
+        open_btn.setEnabled(bool(job.output_path and Path(job.output_path).exists()))
+        open_btn.clicked.connect(lambda _=False, j=job: self._open_job_file(j))
+        folder_btn = QPushButton("Folder")
+        folder_btn.setFixedHeight(24)
+        folder_btn.clicked.connect(lambda _=False, j=job: self._open_job_folder(j))
+        lay.addWidget(open_btn)
+        lay.addWidget(folder_btn)
+        return wrap
+
+    def _open_job_file(self, job) -> None:  # noqa: ANN001
+        if job.output_path and Path(job.output_path).exists():
+            self._open_path(Path(job.output_path))
+        else:
+            QMessageBox.warning(self, "Golden Signing", "Chưa có file đã ký cho dòng này.")
+
+    def _open_job_folder(self, job) -> None:  # noqa: ANN001
+        if job.output_path:
+            folder = Path(job.output_path).parent
+        else:
+            folder = self._resolve_output_dir(self._model.jobs())
+        folder.mkdir(parents=True, exist_ok=True)
+        self._open_path(folder)
 
     def _update_summary(self) -> None:
         total, ok, err = self._model.summary()
@@ -586,6 +705,9 @@ class MainWindow(QMainWindow):
                     self._lab_signer = TestCertPdfSigner()
                 engine = self._lab_signer
                 self._profile_label.setText("Profile: PUS Safe · lab (test cert)")
+                fp = getattr(engine, "certificate_fingerprint_sha256", "") or ""
+                if fp and self._active_fingerprint != fp:
+                    self._load_cert_profile(fp, company="Golden Signing Lab")
 
         profile = pus_safe_profile(certificate_fingerprint_sha256=engine.certificate_fingerprint_sha256)
         mode_key = self._mode_combo.currentData() or "visible"
@@ -596,6 +718,10 @@ class MainWindow(QMainWindow):
         engine.show_background = self._bg_enabled()
         engine.show_logo = self._logo_check.isChecked()
         engine.logo_path = self._custom_logo_path()
+        # Only attach logo if user picked one for this cert (or global path)
+        if engine.show_logo and engine.logo_path is None:
+            engine.show_logo = False
+        self._save_active_profile()
         out_dir = self._resolve_output_dir(jobs)
         batch = BatchEngine(
             engine,
