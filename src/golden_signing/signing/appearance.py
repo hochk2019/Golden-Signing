@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 from pathlib import Path
 from typing import Any
 
@@ -192,10 +193,8 @@ class _StampCard(PdfContent):
             try:
                 logo_ops = self._logo.render()
                 # Critical: pull XObject / resources into this appearance stream
-                try:
+                with contextlib.suppress(Exception):
                     self.import_resources(self._logo.resources)
-                except Exception:  # noqa: BLE001
-                    pass
             except Exception:  # noqa: BLE001
                 logo_ops = b""
             if logo_ops:
