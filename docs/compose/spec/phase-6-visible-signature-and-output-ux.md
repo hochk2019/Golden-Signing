@@ -3,7 +3,7 @@ feature: phase-6-visible-signature-and-output-ux
 status: delivered
 updated: 2026-09-09
 branch: main
-commits: 11027d9..HEAD # Phase 6
+commits: 11027d9..275ba0c # Phase 6
 ---
 
 # Phase 6 — Visible Signature + Output UX
