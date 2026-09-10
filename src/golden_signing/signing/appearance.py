@@ -206,7 +206,7 @@ def signing_extras(
         background_layout=SimpleBoxLayoutRule(
             x_align=AxisAlignment.ALIGN_MIN,
             y_align=AxisAlignment.ALIGN_MIN,
-            margins=Margins.uniform(0),
+            margins=Margins.uniform(0),  # type: ignore[no-untyped-call]
         ),
         background_opacity=0.88,
         text_box_style=_make_text_style(text_color=text_color),
