@@ -5,6 +5,9 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from pyhanko.pdf_utils.content import PdfContent
+from pyhanko.pdf_utils.layout import BoxConstraints
+
 from golden_signing.signing.contracts import SigningProfile
 from golden_signing.ui.cert_label import (
     common_name_from_subject,
@@ -117,21 +120,39 @@ def build_stamp_text(
 
 def _make_text_style(
     *,
-    font_size: int = 9,
-    leading: int = 12,
+    font_size: int = 10,
+    leading: int = 13,
     text_color: tuple[float, float, float] | None = None,
 ) -> Any:
     from pyhanko.pdf_utils.font.basic import SimpleFontEngineFactory
     from pyhanko.pdf_utils.text import TextBoxStyle
 
-    # ASCII-folded text + standard Type1 Courier: reliable in every PDF viewer.
+    # Helvetica: proportional, more readable than Courier for a signature block.
     return TextBoxStyle(
-        font=SimpleFontEngineFactory.default_factory(),  # type: ignore[no-untyped-call]
+        font=SimpleFontEngineFactory("Helvetica", 0.5),
         font_size=font_size,
         leading=leading,
         border_width=0,
         text_color=text_color or DEFAULT_TEXT_COLORS["navy"],
     )
+
+
+class _SoftPanel(PdfContent):
+    """Light tinted panel so the signature area is easy to spot."""
+
+    def __init__(self, width: float, height: float, rgb: tuple[float, float, float]) -> None:
+        super().__init__(box=BoxConstraints(width=width, height=height))
+        self._rgb = rgb
+
+    def render(self) -> bytes:
+        r, g, b = self._rgb
+        w = float(self.box.width or 0)
+        h = float(self.box.height or 0)
+        # fill + thin inner stroke for a soft card edge
+        return (
+            f"{r:.3f} {g:.3f} {b:.3f} rg 0 0 {w:.2f} {h:.2f} re f "
+            f"0.80 0.84 0.88 RG 0.6 w 0.3 0.3 {w - 0.6:.2f} {h - 0.6:.2f} re S"
+        ).encode("ascii")
 
 
 def signing_extras(
@@ -171,17 +192,28 @@ def signing_extras(
 
     field_name = "GoldenSigningVisible"
     box = DEFAULT_VISIBLE_BOX
+    # Soft light-blue panel (~#EEF3F8) so the signed area is easy to see
+    panel = _SoftPanel(
+        width=float(box[2] - box[0]),
+        height=float(box[3] - box[1]),
+        rgb=(0.933, 0.953, 0.973),
+    )
     stamp = TextStampStyle(
         stamp_text=stamp_text,
-        border_width=0,  # hide heavy black frame
-        border_color=(1.0, 1.0, 1.0),
-        background=None,  # no filled background box
-        background_opacity=0.0,
+        border_width=0,  # panel draws its own hairline
+        border_color=None,
+        background=panel,
+        background_layout=SimpleBoxLayoutRule(
+            x_align=AxisAlignment.ALIGN_MIN,
+            y_align=AxisAlignment.ALIGN_MIN,
+            margins=Margins.uniform(0),
+        ),
+        background_opacity=0.88,
         text_box_style=_make_text_style(text_color=text_color),
         inner_content_layout=SimpleBoxLayoutRule(
             x_align=AxisAlignment.ALIGN_MIN,
             y_align=AxisAlignment.ALIGN_MIN,
-            margins=Margins(left=2, right=2, top=2, bottom=2),
+            margins=Margins(left=8, right=8, top=8, bottom=8),
         ),
     )
     field_spec = SigFieldSpec(
