@@ -100,6 +100,7 @@ class TokenPdfSigner:
         pin: str,
         *,
         cert_label: str | None = None,
+        cert_serial: str | None = None,
     ) -> tuple[Any, Any]:
         """Return (pkcs11_session, asn1_certificate). PIN not retained after return."""
         import hashlib
@@ -119,14 +120,28 @@ class TokenPdfSigner:
         for slot in slots:
             try:
                 token = slot.get_token()
-                session = token.open()
-                session.login(pin)  # type: ignore[attr-defined]
+                # python-pkcs11: login via token.open(user_pin=...), not Session.login()
+                session = token.open(
+                    rw=False,
+                    user_pin=pin,
+                    user_type=pkcs11.UserType.USER,
+                )
             except Exception as exc:  # noqa: BLE001
                 last_err = exc
+                name = type(exc).__name__.upper()
                 text = str(exc).upper()
-                if "PIN" in text or "AUTH" in text or "LOGIN" in text:
-                    raise TokenError("PIN không đúng hoặc bị hủy", code="WRONG_PIN") from exc
-                if "REMOVED" in text or "DEVICE" in text:
+                if (
+                    "PIN" in name
+                    or "AUTH" in name
+                    or "PIN" in text
+                    or "AUTH" in text
+                    or "LOGIN" in text
+                ):
+                    raise TokenError(
+                        "PIN không đúng hoặc bị hủy",
+                        code="WRONG_PIN",
+                    ) from exc
+                if "REMOVED" in name or "DEVICE" in name or "REMOVED" in text:
                     raise TokenLostError(str(exc)) from exc
                 continue
 
@@ -142,8 +157,16 @@ class TokenPdfSigner:
                         clabel = bytes(obj[pkcs11.Attribute.LABEL]).decode("utf-8", "replace")
                     except Exception:  # noqa: BLE001
                         clabel = ""
+                    cert = asn1_x509.Certificate.load(der)
+                    serial_hex = format(cert.serial_number, "x")
+                    if cert_serial is not None:
+                        if serial_hex.lower() == cert_serial.lower().lstrip("0") or serial_hex.lower() == cert_serial.lower():
+                            chosen = cert
+                            chosen_der = der
+                            break
+                        continue
                     if cert_label is None or cert_label == clabel or cert_label in clabel:
-                        chosen = asn1_x509.Certificate.load(der)
+                        chosen = cert
                         chosen_der = der
                         break
                 if chosen is None:

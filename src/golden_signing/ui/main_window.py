@@ -44,26 +44,82 @@ def _brand_mark_path() -> Path:
 
 
 class CertPickerDialog(QDialog):
+    """Compact cert chooser — short CN + expiry only."""
+
     def __init__(self, certs: list, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setWindowTitle("Chọn chứng thư số")
-        self.setMinimumWidth(520)
+        self.setModal(True)
+        self.setMinimumWidth(420)
+        self.setMaximumWidth(480)
         lay = QVBoxLayout(self)
-        lay.addWidget(QLabel("Token USB đã phát hiện. Chọn chứng thư để ký:"))
+        lay.setContentsMargins(16, 16, 16, 12)
+        lay.setSpacing(10)
+
+        hint = QLabel("Chứng thư trên USB token:")
+        lay.addWidget(hint)
         self._combo = QComboBox()
+        self._combo.setMinimumHeight(32)
         for c in certs:
-            self._combo.addItem(
-                f"{c.subject[:80]} | {c.token_label or ''} | hết hạn {c.not_valid_after}",
-                userData=c,
-            )
+            self._combo.addItem(_short_cert_label(c), userData=c)
         lay.addWidget(self._combo)
-        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
+
+        self._detail = QLabel()
+        self._detail.setObjectName("productSub")
+        self._detail.setWordWrap(True)
+        self._detail.setTextFormat(Qt.TextFormat.PlainText)
+        lay.addWidget(self._detail)
+        self._combo.currentIndexChanged.connect(self._on_index_changed)
+        if certs:
+            self._on_index_changed(0)
+
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+        )
+        buttons.button(QDialogButtonBox.StandardButton.Ok).setText("Chọn")
+        buttons.button(QDialogButtonBox.StandardButton.Cancel).setText("Hủy")
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
         lay.addWidget(buttons)
 
+    def _on_index_changed(self, index: int) -> None:
+        c = self._combo.itemData(index)
+        if c is None:
+            self._detail.setText("")
+            return
+        expiry = str(c.not_valid_after)[:10]
+        self._detail.setText(f"Issuer: {_ellipsis(c.issuer, 48)}\nHết hạn: {expiry}")
+
     def selected_cert(self):  # noqa: ANN201
         return self._combo.currentData()
+
+
+def _ellipsis(text: str, n: int) -> str:
+    t = " ".join(str(text).split())
+    return t if len(t) <= n else t[: n - 1] + "…"
+
+
+def _short_cert_label(cert) -> str:  # noqa: ANN001
+    """Prefer CN=... from subject; fallback first 40 chars."""
+    subject = str(getattr(cert, "subject", "") or "")
+    cn = ""
+    for part in subject.split(","):
+        part = part.strip()
+        if part.upper().startswith("CN=") or part.upper().startswith("COMMON NAME:"):
+            cn = part.split(":", 1)[-1].strip() if ":" in part else part[3:].strip()
+            break
+    if not cn:
+        # Vietnamese certs often put company name after Common Name:
+        if "Common Name:" in subject:
+            cn = subject.split("Common Name:", 1)[1].split(",")[0].strip()
+        else:
+            cn = subject[:40]
+    expiry = str(getattr(cert, "not_valid_after", ""))[:10]
+    token = getattr(cert, "token_label", None) or ""
+    base = _ellipsis(cn, 36)
+    if token:
+        return f"{base} · {token} · {expiry}"
+    return f"{base} · {expiry}"
 
 
 class MainWindow(QMainWindow):
@@ -87,8 +143,11 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(central)
         self._update_summary()
         self._sign_btn.setEnabled(False)
-        # Do not touch PKCS#11 at construction (token may already be loaded in-process).
-        self._token_note.setText("Nhấn “Quét token” hoặc bấm KÝ SỐ để kết nối USB token.")
+        self._token_note.setText("Đang quét USB token…")
+        # Auto-scan shortly after show (list certs only — no PIN).
+        from PySide6.QtCore import QTimer
+
+        QTimer.singleShot(400, self._refresh_token_label)
 
     def _build_rail(self) -> QFrame:
         rail = QFrame()
@@ -155,7 +214,7 @@ class MainWindow(QMainWindow):
         actions = QHBoxLayout()
         self._add_btn = QPushButton("Thêm PDF")
         self._add_dir_btn = QPushButton("Thêm thư mục")
-        self._rescan_btn = QPushButton("Quét token")
+        self._rescan_btn = QPushButton("Quét lại token")
         self._add_btn.clicked.connect(self._on_add_files)
         self._add_dir_btn.clicked.connect(self._on_add_folder)
         self._rescan_btn.clicked.connect(self._on_rescan_token)
@@ -260,15 +319,17 @@ class MainWindow(QMainWindow):
             return None
         pin, ok = QInputDialog.getText(
             self,
-            "PIN token",
-            "Nhập PIN chữ ký số (không lưu PIN):",
+            "PIN chữ ký số",
+            "PIN (không lưu):",
             QLineEdit.EchoMode.Password,
         )
         if not ok or not pin:
             return None
         try:
             session, asn1_cert = TokenPdfSigner.open_session_with_pin(
-                dll, pin, cert_label=None
+                dll,
+                pin,
+                cert_serial=getattr(chosen, "serial", None),
             )
         except Exception as exc:  # noqa: BLE001
             QMessageBox.critical(self, "Token", f"Đăng nhập token thất bại:\n{exc}")
@@ -277,11 +338,13 @@ class MainWindow(QMainWindow):
             pin = ""  # noqa: PLW0642 — drop local ref
         signer = TokenPdfSigner(dll)
         signer.bind_session(session, asn1_cert)
-        # fingerprint from selected cert if available
         if getattr(chosen, "fingerprint_sha256", ""):
             signer.certificate_fingerprint_sha256 = chosen.fingerprint_sha256
         self._token_signer = signer
-        self._profile_label.setText(f"Profile: PUS Safe · {chosen.subject[:40]}")
+        self._profile_label.setText(f"Profile: PUS Safe · {_ellipsis(chosen.subject, 32)}")
+        self._token_note.setText(
+            f"Đã kết nối: {_ellipsis(chosen.subject, 40)}\nToken: {chosen.token_label or 'USB'}"
+        )
         return signer
 
     # --- files / drag -------------------------------------------------
