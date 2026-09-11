@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 from pathlib import Path
 
 from PySide6.QtCore import Qt
@@ -398,10 +399,8 @@ class MainWindow(QMainWindow):
         # Prevent widget toggles from re-saving half-loaded state
         blockers = []
         for w in (self._mode_combo, self._color_combo, self._bg_check, self._logo_check):
-            try:
+            with contextlib.suppress(Exception):
                 blockers.append(w.blockSignals(True))
-            except Exception:  # noqa: BLE001
-                pass
         try:
             mode = str(self._settings.value("defaultSignatureMode", "visible"))
             self._select_mode(mode)
@@ -439,10 +438,8 @@ class MainWindow(QMainWindow):
                 blockers,
                 strict=False,
             ):
-                try:
+                with contextlib.suppress(Exception):
                     w.blockSignals(prev)
-                except Exception:  # noqa: BLE001
-                    pass
 
     def _save_app_defaults(self) -> None:
         logo_path = str(self._settings.value("signatureLogoPath", "") or "")
