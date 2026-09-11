@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -91,28 +89,7 @@ class SettingsDialog(QDialog):
         )
         form.addRow("", self._autoscan)
 
-        self._watch = QCheckBox("Watch folder — tự thêm PDF mới vào danh sách")
-        self._watch.setChecked(str(settings.value("watchFolder", "0")) not in ("0", "false", "False"))
-        form.addRow("", self._watch)
-        wf_row = QHBoxLayout()
-        self._watch_edit = QLineEdit(str(settings.value("watchFolderDir", "") or ""))
-        self._watch_edit.setPlaceholderText("Thư mục theo dõi")
-        wf_browse = QPushButton("Chọn…")
-        wf_browse.clicked.connect(self._browse_watch)
-        wf_row.addWidget(self._watch_edit, stretch=1)
-        wf_row.addWidget(wf_browse)
-        wf_wrap = QWidget()
-        wf_wrap.setLayout(wf_row)
-        form.addRow("Thư mục watch", wf_wrap)
-
         root.addLayout(form)
-
-        diag_row = QHBoxLayout()
-        diag_btn = QPushButton("Export diagnostics JSON…")
-        diag_btn.clicked.connect(self._export_diag)
-        diag_row.addWidget(diag_btn)
-        diag_row.addStretch(1)
-        root.addLayout(diag_row)
 
         # Cert profiles
         root.addWidget(QLabel("Hồ sơ theo chứng thư (logo / màu / nền…):"))
@@ -180,20 +157,6 @@ class SettingsDialog(QDialog):
         except Exception as exc:  # noqa: BLE001
             QMessageBox.warning(self, "Lỗi", str(exc))
 
-    def _browse_watch(self) -> None:
-        folder = QFileDialog.getExistingDirectory(self, "Chọn thư mục theo dõi")
-        if folder:
-            self._watch_edit.setText(folder)
-
-    def _export_diag(self) -> None:
-        folder = QFileDialog.getExistingDirectory(self, "Chọn thư mục lưu diagnostics")
-        if not folder:
-            return
-        from golden_signing.diagnostics.export import export_diagnostics
-
-        out = export_diagnostics(Path(folder))
-        QMessageBox.information(self, "Diagnostics", f"Đã ghi: {out}")
-
     def _save(self) -> None:
         s = self._settings
         s.setValue("defaultOutputDir", self._out_edit.text().strip())
@@ -201,6 +164,4 @@ class SettingsDialog(QDialog):
         s.setValue("signatureTextColor", self._color.currentData())
         s.setValue("signatureBg", "1" if self._bg.isChecked() else "0")
         s.setValue("autoScanToken", "1" if self._autoscan.isChecked() else "0")
-        s.setValue("watchFolder", "1" if self._watch.isChecked() else "0")
-        s.setValue("watchFolderDir", self._watch_edit.text().strip())
         self.accept()

@@ -132,7 +132,6 @@ class MainWindow(QMainWindow):
         from golden_signing.storage.history import SigningHistory
 
         self._history = SigningHistory()
-        self._watcher = None
         from PySide6.QtCore import QSettings
 
         self._settings = QSettings("HOCHK", "GoldenSigning")
@@ -153,26 +152,7 @@ class MainWindow(QMainWindow):
             QTimer.singleShot(400, self._refresh_token_label)
         else:
             self._token_note.setText("Tự quét token đã tắt (Cài đặt).")
-        self._maybe_start_watch()
-
-    def _maybe_start_watch(self) -> None:
-        if self._watcher is not None:
-            self._watcher.stop()
-            self._watcher = None
-        if str(self._settings.value("watchFolder", "0")) in ("0", "false", "False"):
-            return
-        folder = str(self._settings.value("watchFolderDir", "") or "")
-        if not folder:
-            return
-        from golden_signing.ui.watch_folder import WatchFolder
-
-        self._watcher = WatchFolder(Path(folder), self._on_watch_files, parent=self)
-        self._watcher.start()
-        self.statusBar().showMessage(f"Đang theo dõi: {folder}", 4000)
-
-    def _on_watch_files(self, paths: list) -> None:
-        self.add_paths([Path(p) for p in paths])
-        self.statusBar().showMessage(f"Watch folder: thêm {len(paths)} PDF", 4000)
+        self._load_app_defaults()
 
     def _build_rail(self) -> QFrame:
         rail = QFrame()
@@ -255,13 +235,14 @@ class MainWindow(QMainWindow):
 
         self._table = QTableWidget(0, 3)
         self._table.setHorizontalHeaderLabels(["Tên file", "Trạng thái", "Hành động"])
-        header = self._table.horizontalHeader()
-        header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
-        header.setSectionResizeMode(1, QHeaderView.ResizeMode.Fixed)
-        header.setSectionResizeMode(2, QHeaderView.ResizeMode.Fixed)
+        tbl_header = self._table.horizontalHeader()
+        if tbl_header is not None:
+            tbl_header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+            tbl_header.setSectionResizeMode(1, QHeaderView.ResizeMode.Fixed)
+            tbl_header.setSectionResizeMode(2, QHeaderView.ResizeMode.Fixed)
+            tbl_header.setStretchLastSection(False)
         self._table.setColumnWidth(1, 96)
         self._table.setColumnWidth(2, 210)
-        header.setStretchLastSection(False)
         self._table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self._table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self._table.setWordWrap(False)
@@ -377,18 +358,19 @@ class MainWindow(QMainWindow):
         return data[0] if data else "navy"
 
     def _load_cert_profile(self, fingerprint: str, company: str = "") -> None:
-        """Apply saved profile for this cert (or defaults if none)."""
+        """Load per-cert profile; fall back to app defaults if none."""
         self._active_fingerprint = fingerprint or None
-        prof = self._cert_store.get(fingerprint)
+        prof = self._cert_store.get(fingerprint) if fingerprint else None
         if prof is None:
-            # No profile → logo off, use app defaults for color/bg/mode
-            self._logo_check.setChecked(False)
-            self._logo_pick_btn.setEnabled(True)
+            self._load_app_defaults()
+            if company:
+                self.statusBar().showMessage(
+                    f"Chứng thư {company}: chưa có hồ sơ riêng — dùng cài đặt mặc định",
+                    4000,
+                )
             return
-        # mode
         idx = 0 if prof.signature_mode == "visible" else 1
         self._mode_combo.setCurrentIndex(idx)
-        # color
         for i in range(self._color_combo.count()):
             item = self._color_combo.itemData(i)
             if item and item[0] == prof.text_color_key:
@@ -406,7 +388,57 @@ class MainWindow(QMainWindow):
         )
         self.statusBar().showMessage(f"Đã nạp hồ sơ chứng thư: {company or fingerprint[:16]}", 3000)
 
+    def _load_app_defaults(self) -> None:
+        """Apply last-used app-wide signature defaults (works without token)."""
+        mode = str(self._settings.value("defaultSignatureMode", "visible"))
+        self._mode_combo.setCurrentIndex(0 if mode == "visible" else 1)
+        color_key = str(self._settings.value("signatureTextColor", "navy"))
+        for i in range(self._color_combo.count()):
+            item = self._color_combo.itemData(i)
+            if item and item[0] == color_key:
+                self._color_combo.setCurrentIndex(i)
+                break
+        self._bg_check.setChecked(
+            str(self._settings.value("signatureBg", "1")) not in ("0", "false", "False")
+        )
+        logo_path = str(self._settings.value("signatureLogoPath", "") or "")
+        show_logo = str(self._settings.value("signatureLogo", "0")) not in (
+            "0",
+            "false",
+            "False",
+        )
+        # No logo path → force off (never invent a default stamp logo)
+        self._logo_check.setChecked(show_logo and bool(logo_path))
+        self._sig_page = int(str(self._settings.value("sigPage", "0") or "0"))
+        try:
+            sx = self._settings.value("sigX", None)
+            sy = self._settings.value("sigY", None)
+            self._sig_origin = (
+                (int(str(sx)), int(str(sy)))
+                if sx is not None and sy is not None
+                else None
+            )
+        except (TypeError, ValueError):
+            self._sig_origin = None
+
+    def _save_app_defaults(self) -> None:
+        logo_path = str(self._settings.value("signatureLogoPath", "") or "")
+        show_logo = self._logo_check.isChecked() and bool(logo_path)
+        self._settings.setValue("defaultSignatureMode", self._mode_combo.currentData())
+        self._settings.setValue("signatureTextColor", self._current_color_key())
+        self._settings.setValue("signatureBg", "1" if self._bg_check.isChecked() else "0")
+        self._settings.setValue("signatureLogo", "1" if show_logo else "0")
+        self._settings.setValue("sigPage", self._sig_page)
+        if self._sig_origin:
+            self._settings.setValue("sigX", self._sig_origin[0])
+            self._settings.setValue("sigY", self._sig_origin[1])
+        else:
+            self._settings.remove("sigX")
+            self._settings.remove("sigY")
+
     def _save_active_profile(self) -> None:
+        """Always persist app defaults; also write cert profile when a cert is active."""
+        self._save_app_defaults()
         fp = self._active_fingerprint
         if not fp:
             return
@@ -723,20 +755,7 @@ class MainWindow(QMainWindow):
     def _nav_settings(self) -> None:
         dlg = SettingsDialog(self._settings, self)
         dlg.exec()
-        # apply defaults that affect live UI
-        saved_mode = str(self._settings.value("defaultSignatureMode", "visible"))
-        idx = 0 if saved_mode == "visible" else 1
-        self._mode_combo.setCurrentIndex(idx)
-        saved_color = str(self._settings.value("signatureTextColor", "navy"))
-        for i in range(self._color_combo.count()):
-            item = self._color_combo.itemData(i)
-            if item and item[0] == saved_color:
-                self._color_combo.setCurrentIndex(i)
-                break
-        self._bg_check.setChecked(
-            str(self._settings.value("signatureBg", "1")) not in ("0", "false", "False")
-        )
-        self._maybe_start_watch()
+        self._load_app_defaults()
 
     def _nav_about(self) -> None:
         QMessageBox.information(
