@@ -122,7 +122,8 @@ def _check_icon_url() -> str:
     root = here.parents[3]
     icon = root / "assets" / "ui" / "check.svg"
     if icon.is_file():
-        return icon.as_uri().replace("\\", "/")
+        # Qt QSS prefers plain path with forward slashes (no file://)
+        return icon.as_posix()
     return ""
 
 

@@ -116,7 +116,7 @@ class MainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
         self.setWindowTitle("Golden Signing — Ký số PDF")
-        self.resize(960, 640)
+        self.resize(1080, 700)
         self.setAcceptDrops(True)
 
         self._model = FileJobTableModel(self)
@@ -203,7 +203,7 @@ class MainWindow(QMainWindow):
         lay.addSpacing(16)
 
         for label, handler in (
-            ("Ký tài liệu", self._nav_sign_docs),
+            ("Xác minh PDF", self._on_verify_pdf),
             ("Hồ sơ ký", self._nav_profiles),
             ("Lịch sử ký", self._nav_history),
             ("Cài đặt", self._nav_settings),
@@ -260,7 +260,7 @@ class MainWindow(QMainWindow):
         header.setSectionResizeMode(1, QHeaderView.ResizeMode.Fixed)
         header.setSectionResizeMode(2, QHeaderView.ResizeMode.Fixed)
         self._table.setColumnWidth(1, 96)
-        self._table.setColumnWidth(2, 188)
+        self._table.setColumnWidth(2, 210)
         header.setStretchLastSection(False)
         self._table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self._table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
@@ -280,19 +280,17 @@ class MainWindow(QMainWindow):
         out_row.addWidget(self._out_browse)
         lay.addLayout(out_row)
 
-        # Signature mode
-        mode_row = QHBoxLayout()
-        mode_row.addWidget(QLabel("Hiển thị chữ ký số:"))
+        # Hidden state widgets (edited via Cài đặt ký popup)
         self._mode_combo = QComboBox()
         self._mode_combo.addItem("Vô hình — không đổi giao diện", userData="invisible")
         self._mode_combo.addItem("Hiển thị trên PDF", userData="visible")
-        self._mode_combo.setCurrentIndex(1)  # default visible
+        self._mode_combo.setCurrentIndex(1)
         saved_mode = str(self._settings.value("defaultSignatureMode", "visible"))
         if saved_mode == "invisible":
             self._mode_combo.setCurrentIndex(0)
         self._mode_combo.currentIndexChanged.connect(lambda _i: self._save_active_profile())
-        mode_row.addWidget(self._mode_combo)
-        mode_row.addWidget(QLabel("Màu chữ ký:"))
+        self._mode_combo.hide()
+
         self._color_combo = QComboBox()
         color_labels = {
             "navy": "Xanh navy",
@@ -311,46 +309,40 @@ class MainWindow(QMainWindow):
                 self._color_combo.setCurrentIndex(i)
                 break
         self._color_combo.currentIndexChanged.connect(self._on_color_changed)
-        mode_row.addWidget(self._color_combo)
+        self._color_combo.hide()
+
         from PySide6.QtWidgets import QCheckBox
 
         self._bg_check = QCheckBox("Nền nhạt")
-        self._bg_check.setChecked(str(self._settings.value("signatureBg", "1")) not in ("0", "false", "False"))
-        self._bg_check.setToolTip("Bật/tắt nền nhạt sau ô chữ ký trên PDF")
+        self._bg_check.setChecked(
+            str(self._settings.value("signatureBg", "1")) not in ("0", "false", "False")
+        )
         self._bg_check.toggled.connect(self._on_bg_toggled)
-        mode_row.addWidget(self._bg_check)
+        self._bg_check.hide()
+
         self._logo_check = QCheckBox("Logo")
-        # Default OFF: only certs with their own logo profile should get a stamp logo.
         self._logo_check.setChecked(
             str(self._settings.value("signatureLogo", "0")) not in ("0", "false", "False")
         )
-        self._logo_check.setToolTip("Logo riêng theo chứng thư (Chọn logo…); không dùng logo mặc định nếu chưa chọn")
         self._logo_check.toggled.connect(self._on_logo_toggled)
-        mode_row.addWidget(self._logo_check)
-        self._logo_pick_btn = QPushButton("Chọn logo…")
-        self._logo_pick_btn.setToolTip("Chọn file PNG/JPG làm logo bên trái chữ ký (ghi nhớ)")
-        self._logo_pick_btn.clicked.connect(self._on_pick_logo)
-        mode_row.addWidget(self._logo_pick_btn)
-        self._pos_btn = QPushButton("Vị trí…")
-        self._pos_btn.setToolTip("Bấm vào preview PDF để đặt ô chữ ký (lưu theo chứng thư)")
-        self._pos_btn.clicked.connect(self._on_pick_position)
-        mode_row.addWidget(self._pos_btn)
-        mode_row.addStretch(1)
-        self._open_folder_btn = QPushButton("Mở thư mục")
-        self._clear_btn = QPushButton("Xóa khỏi danh sách")
-        self._verify_btn = QPushButton("Xác minh PDF…")
-        self._pause_btn = QPushButton("Tạm dừng")
+        self._logo_check.hide()
+
+        mode_row = QHBoxLayout()
+        mode_row.addWidget(QLabel("Thao tác:"))
+        self._sign_settings_btn = QPushButton("Cài đặt ký")
+        self._sign_settings_btn.setToolTip(
+            "Chế độ ký · màu chữ · nền · logo · vị trí (lưu theo chứng thư)"
+        )
+        self._sign_settings_btn.clicked.connect(self._on_open_sign_settings)
+        mode_row.addWidget(self._sign_settings_btn)
         self._retry_btn = QPushButton("Ký lại lỗi")
-        self._open_folder_btn.clicked.connect(self._on_open_output_folder)
-        self._clear_btn.clicked.connect(self._on_clear_selected)
-        self._verify_btn.clicked.connect(self._on_verify_pdf)
-        self._pause_btn.clicked.connect(self._on_toggle_pause)
         self._retry_btn.clicked.connect(self._on_retry_failed)
-        mode_row.addWidget(self._open_folder_btn)
-        mode_row.addWidget(self._verify_btn)
-        mode_row.addWidget(self._pause_btn)
         mode_row.addWidget(self._retry_btn)
+        self._clear_btn = QPushButton("Xóa danh sách ký")
+        self._clear_btn.setToolTip("Xóa toàn cả file trong danh sách (đã ký và chưa ký)")
+        self._clear_btn.clicked.connect(self._on_clear_all)
         mode_row.addWidget(self._clear_btn)
+        mode_row.addStretch(1)
         lay.addLayout(mode_row)
 
         footer = QHBoxLayout()
@@ -464,7 +456,6 @@ class MainWindow(QMainWindow):
     def _run_batch(self, batch: BatchEngine, jobs: list) -> None:
         self._batch_engine = batch
         self._batch_paused = False
-        self._pause_btn.setText("Tạm dừng")
         batch.enqueue_jobs(jobs)
         self._sign_btn.setEnabled(False)
         try:
@@ -516,17 +507,6 @@ class MainWindow(QMainWindow):
                 f"Hoàn tất: {result.success} thành công · 0 lỗi\nThư mục: {out_dir}",
             )
 
-    def _on_pick_logo(self) -> None:
-        path, _ = QFileDialog.getOpenFileName(
-            self, "Chọn logo chữ ký", "", "Images (*.png *.jpg *.jpeg *.webp)"
-        )
-        if not path:
-            return
-        self._settings.setValue("signatureLogoPath", path)
-        self._logo_check.setChecked(True)
-        self._save_active_profile()
-        self.statusBar().showMessage(f"Logo chữ ký: {Path(path).name}", 4000)
-
     def _sample_pdf_for_position(self) -> Path | None:
         jobs = self._model.jobs()
         for j in jobs:
@@ -542,9 +522,25 @@ class MainWindow(QMainWindow):
         if pdf is None:
             QMessageBox.information(self, "Golden Signing", "Cần ít nhất một PDF trong danh sách.")
             return
+        from golden_signing.signing.appearance import estimate_stamp_box
         from golden_signing.ui.sig_position_dialog import SigPositionDialog
 
-        dlg = SigPositionDialog(pdf, page=self._sig_page, origin=self._sig_origin, parent=self)
+        text_w, text_h = 240, 80
+        try:
+            from golden_signing.signing.appearance import build_stamp_text
+
+            sample_text = build_stamp_text(company="Preview", mst="0", serial="0")
+            box = estimate_stamp_box(sample_text, with_logo=self._logo_check.isChecked())
+            text_w, text_h = box[2] - box[0], box[3] - box[1]
+        except Exception:  # noqa: BLE001
+            pass
+        dlg = SigPositionDialog(
+            pdf,
+            page=self._sig_page,
+            origin=self._sig_origin,
+            box_size=(text_w, text_h),
+            parent=self,
+        )
         if dlg.exec() != QDialog.DialogCode.Accepted:
             return
         pos = dlg.result_position()
@@ -564,23 +560,6 @@ class MainWindow(QMainWindow):
 
         report = format_verify_report(Path(path[0]))
         QMessageBox.information(self, "Xác minh chữ ký", report)
-
-    def _on_toggle_pause(self) -> None:
-        if self._batch_engine is None:
-            self.statusBar().showMessage("Chưa có batch đang chạy", 3000)
-            return
-        if not self._batch_paused:
-            self._batch_engine.pause()
-            self._batch_paused = True
-            self._pause_btn.setText("Tiếp tục")
-            self.statusBar().showMessage("Batch sẽ tạm dừng sau file hiện tại", 3000)
-        else:
-            self._batch_engine.resume()
-            self._batch_paused = False
-            self._pause_btn.setText("Tạm dừng")
-            jobs = [j for j in self._model.jobs() if not j.is_terminal]
-            if jobs and self._batch_engine is not None:
-                self._run_batch(self._batch_engine, jobs)
 
     def _on_retry_failed(self) -> None:
         jobs = list(self._model.jobs())
@@ -651,29 +630,6 @@ class MainWindow(QMainWindow):
             return jobs[0].input_path.parent / "signed"
         return Path.cwd() / "signed"
 
-    def _on_open_output_folder(self) -> None:
-        jobs = self._model.jobs()
-        folder = self._resolve_output_dir(jobs)
-        folder.mkdir(parents=True, exist_ok=True)
-        self._open_path(folder)
-
-    def _on_clear_selected(self) -> None:
-        rows = sorted(
-            (i.row() for i in self._table.selectionModel().selectedRows()),
-            reverse=True,
-        ) if self._table.selectionModel() else []
-        if not rows:
-            # clear all
-            self._model.replace_jobs([])
-            self._reload_table()
-            self._update_summary()
-            return
-        jobs = self._model.jobs()
-        keep = [j for idx, j in enumerate(jobs) if idx not in set(rows)]
-        self._model.replace_jobs(keep)
-        self._reload_table()
-        self._update_summary()
-
     def _open_path(self, path: Path) -> None:
         import os
         import subprocess
@@ -691,10 +647,7 @@ class MainWindow(QMainWindow):
         except Exception as exc:  # noqa: BLE001
             QMessageBox.warning(self, "Golden Signing", f"Không mở được:\n{exc}")
 
-    # --- nav stubs ----------------------------------------------------
-
-    def _nav_sign_docs(self) -> None:
-        self.statusBar().showMessage("Đang ở màn Ký tài liệu", 3000)
+    # --- nav ----------------------------------------------------------
 
     def _nav_profiles(self) -> None:
         from golden_signing.ui.profiles_dialog import ProfilesDialog
@@ -705,6 +658,62 @@ class MainWindow(QMainWindow):
         if self._active_fingerprint and self._cert_store.get(self._active_fingerprint) is None:
             self._logo_check.setChecked(False)
             self.statusBar().showMessage("Hồ sơ chứng thư đang dùng đã bị xóa", 4000)
+
+    def _on_open_sign_settings(self) -> None:
+        from golden_signing.ui.sign_settings_dialog import SignSettingsDialog
+
+        sample = None
+        for j in self._model.jobs():
+            if Path(j.input_path).is_file():
+                sample = Path(j.input_path)
+                break
+        dlg = SignSettingsDialog(
+            mode=str(self._mode_combo.currentData() or "visible"),
+            color_key=self._current_color_key(),
+            show_bg=self._bg_check.isChecked(),
+            show_logo=self._logo_check.isChecked(),
+            logo_path=str(self._settings.value("signatureLogoPath", "") or ""),
+            sig_page=self._sig_page,
+            sig_origin=self._sig_origin,
+            sample_pdf=sample,
+            parent=self,
+        )
+        if dlg.exec() != QDialog.DialogCode.Accepted:
+            return
+        r = dlg.values()
+        idx = 0 if r["mode"] == "visible" else 1
+        self._mode_combo.setCurrentIndex(idx)
+        for i in range(self._color_combo.count()):
+            item = self._color_combo.itemData(i)
+            if item and item[0] == r["color_key"]:
+                self._color_combo.setCurrentIndex(i)
+                break
+        self._bg_check.setChecked(bool(r["show_bg"]))
+        self._logo_check.setChecked(bool(r["show_logo"]))
+        if r["logo_path"]:
+            self._settings.setValue("signatureLogoPath", r["logo_path"])
+        self._sig_page = int(r["sig_page"])
+        self._sig_origin = r["sig_origin"]
+        self._settings.setValue("signatureTextColor", r["color_key"])
+        self._settings.setValue("signatureBg", "1" if r["show_bg"] else "0")
+        self._settings.setValue("signatureLogo", "1" if r["show_logo"] else "0")
+        self._save_active_profile()
+        self.statusBar().showMessage("Đã lưu cài đặt ký", 3000)
+
+    def _on_clear_all(self) -> None:
+        if self._model.rowCount() == 0:
+            return
+        ret = QMessageBox.question(
+            self,
+            "Xóa danh sách ký",
+            f"Xóa toàn bộ {self._model.rowCount()} file trong danh sách?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+        )
+        if ret != QMessageBox.StandardButton.Yes:
+            return
+        self._model.replace_jobs([])
+        self._reload_table()
+        self._update_summary()
 
     def _nav_history(self) -> None:
         from golden_signing.ui.history_dialog import HistoryDialog
@@ -860,24 +869,33 @@ class MainWindow(QMainWindow):
 
         wrap = QWidget()
         lay = QHBoxLayout(wrap)
-        lay.setContentsMargins(4, 4, 4, 4)
-        lay.setSpacing(6)
-        open_btn = QPushButton("Mở")
-        open_btn.setFixedSize(52, 26)
-        open_btn.setEnabled(bool(job.output_path and Path(job.output_path).exists()))
+        lay.setContentsMargins(2, 3, 2, 3)
+        lay.setSpacing(4)
+        open_btn = QPushButton("Mở file")
+        open_btn.setFixedSize(58, 22)
         open_btn.clicked.connect(lambda _=False, j=job: self._open_job_file(j))
-        folder_btn = QPushButton("Folder")
-        folder_btn.setFixedSize(58, 26)
+        folder_btn = QPushButton("Mở folder")
+        folder_btn.setFixedSize(64, 22)
         folder_btn.clicked.connect(lambda _=False, j=job: self._open_job_folder(j))
+        del_btn = QPushButton("Xóa")
+        del_btn.setFixedSize(40, 22)
+        del_btn.clicked.connect(lambda _=False, j=job: self._delete_job_row(j))
         lay.addWidget(open_btn)
         lay.addWidget(folder_btn)
+        lay.addWidget(del_btn)
         if job.error_code or job.message:
             detail = QPushButton("Chi tiết")
-            detail.setFixedSize(52, 26)
+            detail.setFixedSize(52, 22)
             detail.clicked.connect(lambda _=False, j=job: self._show_job_error(j))
             lay.addWidget(detail)
         lay.addStretch(1)
         return wrap
+
+    def _delete_job_row(self, job) -> None:  # noqa: ANN001
+        jobs = [j for j in self._model.jobs() if j is not job]
+        self._model.replace_jobs(jobs)
+        self._reload_table()
+        self._update_summary()
 
     def _show_job_error(self, job) -> None:  # noqa: ANN001
         from golden_signing.ui.job_error_dialog import JobErrorDialog
@@ -885,16 +903,21 @@ class MainWindow(QMainWindow):
         JobErrorDialog(job, self).exec()
 
     def _open_job_file(self, job) -> None:  # noqa: ANN001
+        target = None
         if job.output_path and Path(job.output_path).exists():
-            self._open_path(Path(job.output_path))
-        else:
-            QMessageBox.warning(self, "Golden Signing", "Chưa có file đã ký cho dòng này.")
+            target = Path(job.output_path)
+        elif Path(job.input_path).is_file():
+            target = Path(job.input_path)
+        if target is None:
+            QMessageBox.warning(self, "Golden Signing", "Không tìm thấy file.")
+            return
+        self._open_path(target)
 
     def _open_job_folder(self, job) -> None:  # noqa: ANN001
-        if job.output_path:
+        if job.output_path and Path(job.output_path).exists():
             folder = Path(job.output_path).parent
         else:
-            folder = self._resolve_output_dir(self._model.jobs())
+            folder = Path(job.input_path).parent
         folder.mkdir(parents=True, exist_ok=True)
         self._open_path(folder)
 
