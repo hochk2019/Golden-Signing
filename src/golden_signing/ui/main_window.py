@@ -395,36 +395,54 @@ class MainWindow(QMainWindow):
 
     def _load_app_defaults(self) -> None:
         """Apply last-used app-wide signature defaults (works without token)."""
-        mode = str(self._settings.value("defaultSignatureMode", "visible"))
-        self._select_mode(mode)
-        color_key = str(self._settings.value("signatureTextColor", "navy"))
-        for i in range(self._color_combo.count()):
-            item = self._color_combo.itemData(i)
-            if item and item[0] == color_key:
-                self._color_combo.setCurrentIndex(i)
-                break
-        self._bg_check.setChecked(
-            str(self._settings.value("signatureBg", "1")) not in ("0", "false", "False")
-        )
-        logo_path = str(self._settings.value("signatureLogoPath", "") or "")
-        show_logo = str(self._settings.value("signatureLogo", "0")) not in (
-            "0",
-            "false",
-            "False",
-        )
-        # No logo path → force off (never invent a default stamp logo)
-        self._logo_check.setChecked(show_logo and bool(logo_path))
-        self._sig_page = int(str(self._settings.value("sigPage", "0") or "0"))
+        # Prevent widget toggles from re-saving half-loaded state
+        blockers = []
+        for w in (self._mode_combo, self._color_combo, self._bg_check, self._logo_check):
+            try:
+                blockers.append(w.blockSignals(True))
+            except Exception:  # noqa: BLE001
+                pass
         try:
-            sx = self._settings.value("sigX", None)
-            sy = self._settings.value("sigY", None)
-            self._sig_origin = (
-                (int(str(sx)), int(str(sy)))
-                if sx is not None and sy is not None
-                else None
+            mode = str(self._settings.value("defaultSignatureMode", "visible"))
+            self._select_mode(mode)
+            color_key = str(self._settings.value("signatureTextColor", "navy"))
+            for i in range(self._color_combo.count()):
+                item = self._color_combo.itemData(i)
+                if item and item[0] == color_key:
+                    self._color_combo.setCurrentIndex(i)
+                    break
+            self._bg_check.setChecked(
+                str(self._settings.value("signatureBg", "1")) not in ("0", "false", "False")
             )
-        except (TypeError, ValueError):
-            self._sig_origin = None
+            logo_path = str(self._settings.value("signatureLogoPath", "") or "")
+            show_logo = str(self._settings.value("signatureLogo", "0")) not in (
+                "0",
+                "false",
+                "False",
+            )
+            # No logo path → force off (never invent a default stamp logo)
+            self._logo_check.setChecked(bool(show_logo and logo_path))
+            self._sig_page = int(str(self._settings.value("sigPage", "0") or "0"))
+            try:
+                sx = self._settings.value("sigX", None)
+                sy = self._settings.value("sigY", None)
+                self._sig_origin = (
+                    (int(str(sx)), int(str(sy)))
+                    if sx is not None and sy is not None
+                    else None
+                )
+            except (TypeError, ValueError):
+                self._sig_origin = None
+        finally:
+            for w, prev in zip(
+                (self._mode_combo, self._color_combo, self._bg_check, self._logo_check),
+                blockers,
+                strict=False,
+            ):
+                try:
+                    w.blockSignals(prev)
+                except Exception:  # noqa: BLE001
+                    pass
 
     def _save_app_defaults(self) -> None:
         logo_path = str(self._settings.value("signatureLogoPath", "") or "")
