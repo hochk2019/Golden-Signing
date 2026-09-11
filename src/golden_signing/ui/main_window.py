@@ -433,10 +433,10 @@ class MainWindow(QMainWindow):
         self._settings.setValue("signatureTextColor", self._current_color_key())
         self._settings.setValue("signatureBg", "1" if self._bg_check.isChecked() else "0")
         self._settings.setValue("signatureLogo", "1" if show_logo else "0")
-        self._settings.setValue("sigPage", self._sig_page)
+        self._settings.setValue("sigPage", str(self._sig_page))
         if self._sig_origin:
-            self._settings.setValue("sigX", self._sig_origin[0])
-            self._settings.setValue("sigY", self._sig_origin[1])
+            self._settings.setValue("sigX", str(self._sig_origin[0]))
+            self._settings.setValue("sigY", str(self._sig_origin[1]))
         else:
             self._settings.remove("sigX")
             self._settings.remove("sigY")
