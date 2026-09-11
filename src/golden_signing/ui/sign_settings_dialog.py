@@ -138,15 +138,11 @@ class SignSettingsDialog(QDialog):
             self._logo.setText("Ẩn logo")
 
     def _pick_pos(self) -> None:
-        if self._sample_pdf is None or not self._sample_pdf.is_file():
-            from PySide6.QtWidgets import QMessageBox
-
-            QMessageBox.information(self, "Vị trí ký", "Cần ít nhất một PDF trong danh sách.")
-            return
+        sample = self._sample_pdf if (self._sample_pdf and self._sample_pdf.is_file()) else None
         from golden_signing.ui.sig_position_dialog import SigPositionDialog
 
         dlg = SigPositionDialog(
-            self._sample_pdf, page=self._sig_page, origin=self._sig_origin, parent=self
+            sample, page=self._sig_page, origin=self._sig_origin, parent=self
         )
         if dlg.exec() != QDialog.DialogCode.Accepted:
             return

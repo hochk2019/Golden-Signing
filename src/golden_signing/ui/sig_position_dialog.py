@@ -115,7 +115,7 @@ class _PreviewLabel(QLabel):
 class SigPositionDialog(QDialog):
     def __init__(
         self,
-        pdf_path: Path,
+        pdf_path: Path | None,
         *,
         page: int = 0,
         origin: tuple[int, int] | None = None,
@@ -126,24 +126,32 @@ class SigPositionDialog(QDialog):
         self.setWindowTitle("Vị trí ký")
         self.setMinimumSize(700, 620)
         self.setModal(True)
-        self._pdf_path = Path(pdf_path)
+        self._pdf_path = Path(pdf_path) if pdf_path else None
         self._result: tuple[int, int, int] | None = None
         self._box_w = box_size[0] if box_size else DEFAULT_STAMP_W
         self._box_h = box_size[1] if box_size else DEFAULT_STAMP_H
+        self._blank = self._pdf_path is None or not self._pdf_path.is_file()
 
         root = QVBoxLayout(self)
         root.setContentsMargins(12, 12, 12, 12)
         root.setSpacing(8)
-        root.addWidget(
-            QLabel("Bấm để đặt khung chữ ký (khung sẽ tự co lại cho vừa trang):")
+        hint = (
+            "Trang A4 mẫu (chưa thêm PDF) — bấm để đặt khung chữ ký:"
+            if self._blank
+            else "Bấm để đặt khung chữ ký (khung sẽ tự co lại cho vừa trang):"
         )
+        root.addWidget(QLabel(hint))
 
         row = QHBoxLayout()
         row.addWidget(QLabel("Trang:"))
         self._page_spin = QSpinBox()
         self._page_spin.setMinimum(0)
         self._page_spin.setMaximum(0)
-        row.addWidget(self._page_spin)
+        if not self._blank:
+            row.addWidget(self._page_spin)
+        else:
+            self._page_spin.hide()
+            row.addWidget(QLabel("1 (A4)"))
         self._reset_btn = QPushButton("Về mặc định")
         self._reset_btn.clicked.connect(self._reset_default)
         row.addWidget(self._reset_btn)
@@ -170,6 +178,9 @@ class SigPositionDialog(QDialog):
         self._render()
 
     def _load_pages(self) -> None:
+        if self._blank or self._pdf_path is None:
+            self._page_spin.setMaximum(0)
+            return
         try:
             import pypdfium2 as pdfium
 
@@ -180,29 +191,42 @@ class SigPositionDialog(QDialog):
             self._page_spin.setMaximum(0)
 
     def _render(self) -> None:
-        try:
-            import pypdfium2 as pdfium
-            from PySide6.QtGui import QImage
+        from PySide6.QtGui import QImage
 
-            doc = pdfium.PdfDocument(str(self._pdf_path))
-            page = doc[self._page_spin.value()]
-            w, h = page.get_size()
-            bitmap = page.render(scale=1.5)
-            img = bitmap.to_pil().convert("RGBA")
-            data = img.tobytes("raw", "RGBA")
-            qimg = QImage(data, img.width, img.height, QImage.Format.Format_RGBA8888).copy()
-            self._preview.set_page(
-                qimg,
-                float(w),
-                float(h),
-                origin=self._origin,
-                box_w=self._box_w,
-                box_h=self._box_h,
-            )
+        # A4 in PDF points
+        a4_w, a4_h = 595.0, 842.0
+        try:
+            if self._blank or self._pdf_path is None:
+                # Virtual blank A4 page (no real PDF required)
+                scale = 1.5
+                iw, ih = int(a4_w * scale), int(a4_h * scale)
+                qimg = QImage(iw, ih, QImage.Format.Format_RGB32)
+                qimg.fill(Qt.GlobalColor.white)
+                self._preview.set_page(
+                    qimg, a4_w, a4_h, origin=self._origin,
+                    box_w=self._box_w, box_h=self._box_h,
+                )
+            else:
+                import pypdfium2 as pdfium
+
+                doc = pdfium.PdfDocument(str(self._pdf_path))
+                page = doc[self._page_spin.value()]
+                w, h = page.get_size()
+                bitmap = page.render(scale=1.5)
+                img = bitmap.to_pil().convert("RGBA")
+                data = img.tobytes("raw", "RGBA")
+                qimg = QImage(
+                    data, img.width, img.height, QImage.Format.Format_RGBA8888
+                ).copy()
+                self._preview.set_page(
+                    qimg, float(w), float(h),
+                    origin=self._origin, box_w=self._box_w, box_h=self._box_h,
+                )
+                doc.close()
             if self._preview.selected_pdf_xy:
                 x, y = self._preview.selected_pdf_xy
-                self._pos_label.setText(f"({x}, {y}) trang {self._page_spin.value() + 1}")
-            doc.close()
+                page_no = 0 if self._blank else self._page_spin.value()
+                self._pos_label.setText(f"({x}, {y}) trang {page_no + 1}")
         except Exception as exc:  # noqa: BLE001
             self._pos_label.setText(f"Lỗi preview: {exc}")
 

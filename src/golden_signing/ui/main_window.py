@@ -243,9 +243,7 @@ class MainWindow(QMainWindow):
             tbl_header.setSectionResizeMode(2, QHeaderView.ResizeMode.Fixed)
             tbl_header.setStretchLastSection(False)
         self._table.setColumnWidth(1, 96)
-        self._table.setColumnWidth(2, 210)
-        if tbl_header is not None:
-            tbl_header.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
+        self._table.setColumnWidth(2, 236)
         self._table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self._table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self._table.setWordWrap(False)
@@ -570,27 +568,17 @@ class MainWindow(QMainWindow):
         return None
 
     def _on_pick_position(self) -> None:
-        pdf = self._sample_pdf_for_position()
-        if pdf is None:
-            QMessageBox.information(self, "Golden Signing", "Cần ít nhất một PDF trong danh sách.")
-            return
-        from golden_signing.signing.appearance import estimate_stamp_box
+        pdf = self._sample_pdf_for_position()  # None → blank A4
+        from golden_signing.signing.appearance import build_stamp_text, estimate_stamp_box
         from golden_signing.ui.sig_position_dialog import SigPositionDialog
 
-        text_w, text_h = 240, 80
-        try:
-            from golden_signing.signing.appearance import build_stamp_text
-
-            sample_text = build_stamp_text(company="Preview", mst="0", serial="0")
-            box = estimate_stamp_box(sample_text, with_logo=self._logo_check.isChecked())
-            text_w, text_h = box[2] - box[0], box[3] - box[1]
-        except Exception:  # noqa: BLE001
-            pass
+        sample_text = build_stamp_text(company="Preview", mst="0", serial="0")
+        box = estimate_stamp_box(sample_text, with_logo=self._logo_check.isChecked())
         dlg = SigPositionDialog(
             pdf,
             page=self._sig_page,
             origin=self._sig_origin,
-            box_size=(text_w, text_h),
+            box_size=(box[2] - box[0], box[3] - box[1]),
             parent=self,
         )
         if dlg.exec() != QDialog.DialogCode.Accepted:
@@ -910,21 +898,20 @@ class MainWindow(QMainWindow):
         lay.setContentsMargins(4, 4, 4, 4)
         lay.setSpacing(6)
 
-        def _btn(text: str, slot) -> QPushButton:  # noqa: ANN001
+        def _btn(text: str, slot, width: int) -> QPushButton:  # noqa: ANN001
             b = QPushButton(text)
-            b.setFixedHeight(24)
-            b.setMinimumWidth(64)
+            b.setFixedSize(width, 28)
             b.clicked.connect(lambda _=False, j=job: slot(j))
             return b
 
-        open_btn = _btn("Mở", self._open_job_file)
-        folder_btn = _btn("Thư mục", self._open_job_folder)
-        del_btn = _btn("Xóa", self._delete_job_row)
+        open_btn = _btn("Mở file", self._open_job_file, 72)
+        folder_btn = _btn("Mở Thư mục", self._open_job_folder, 92)
+        del_btn = _btn("Xóa", self._delete_job_row, 52)
         lay.addWidget(open_btn)
         lay.addWidget(folder_btn)
         lay.addWidget(del_btn)
         if job.error_code or job.message:
-            detail = _btn("Chi tiết", self._show_job_error)
+            detail = _btn("Chi tiết", self._show_job_error, 64)
             lay.addWidget(detail)
         lay.addStretch(1)
         return wrap

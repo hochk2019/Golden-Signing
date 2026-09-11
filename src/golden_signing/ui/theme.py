@@ -71,6 +71,16 @@ QTableWidget {{
     border: 1px solid {BORDER};
     border-radius: 6px;
     gridline-color: #E9EEF5;
+    selection-background-color: #D6E4F5;
+    selection-color: {FOREGROUND};
+}}
+QTableWidget::item:selected {{
+    background: #D6E4F5;
+    color: {FOREGROUND};
+}}
+QTableWidget::item:selected:active {{
+    background: #C5D8F0;
+    color: {FOREGROUND};
 }}
 QHeaderView::section {{
     background: #E9EEF5;
