@@ -30,6 +30,8 @@ class _PreviewLabel(QLabel):
         super().__init__(parent)
         self.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.setMinimumSize(520, 400)
+        # Mid-gray "desk" so a white page edge is obvious (esp. blank A4).
+        self.setStyleSheet("background-color: #C5CED8;")
         self._img: QImage | None = None
         self._pdf_w = 1.0
         self._pdf_h = 1.0
@@ -88,6 +90,13 @@ class _PreviewLabel(QLabel):
         if self._img is None:
             return
         pix = self._img.copy()
+        painter = QPainter(pix)
+        # Always outline the page so blank A4 (and white PDFs) show a clear edge.
+        page_pen = QPen(QColor(90, 100, 112))
+        page_pen.setWidth(2)
+        painter.setPen(page_pen)
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+        painter.drawRect(1, 1, pix.width() - 2, pix.height() - 2)
         if self._origin:
             iw, ih = pix.width(), pix.height()
             # stamp box in image space (top-left origin)
@@ -95,14 +104,13 @@ class _PreviewLabel(QLabel):
             y0 = (1.0 - (self._origin[1] + self._box_h) / self._pdf_h) * ih
             w = self._box_w / self._pdf_w * iw
             h = self._box_h / self._pdf_h * ih
-            painter = QPainter(pix)
             pen = QPen(QColor(30, 58, 95))
             pen.setWidth(2)
             pen.setStyle(Qt.PenStyle.DashLine)
             painter.setPen(pen)
             painter.setBrush(QColor(30, 58, 95, 28))
             painter.drawRect(int(x0), int(y0), int(w), int(h))
-            painter.end()
+        painter.end()
         self.setPixmap(
             QPixmap.fromImage(pix).scaled(
                 self.size(),

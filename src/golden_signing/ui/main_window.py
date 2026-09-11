@@ -881,6 +881,7 @@ class MainWindow(QMainWindow):
     def _reload_table(self) -> None:
         jobs = self._model.jobs()
         self._table.setRowCount(len(jobs))
+        has_detail = False
         for row, job in enumerate(jobs):
             name_item = QTableWidgetItem(job.input_path.name)
             self._table.setItem(row, 0, name_item)
@@ -889,6 +890,10 @@ class MainWindow(QMainWindow):
                 status.setToolTip(f"{job.state.value}: {job.message}")
             self._table.setItem(row, 1, status)
             self._table.setCellWidget(row, 2, self._make_action_widget(job))
+            if job.error_code or job.message:
+                has_detail = True
+        # 3×88 + gaps; widen when "Chi tiết" is present.
+        self._table.setColumnWidth(2, 384 if has_detail else 292)
 
     def _make_action_widget(self, job) -> QWidget:  # noqa: ANN001
         from PySide6.QtWidgets import QWidget
@@ -898,20 +903,20 @@ class MainWindow(QMainWindow):
         lay.setContentsMargins(4, 4, 4, 4)
         lay.setSpacing(6)
 
-        def _btn(text: str, slot, width: int) -> QPushButton:  # noqa: ANN001
+        def _btn(text: str, slot) -> QPushButton:  # noqa: ANN001
             b = QPushButton(text)
-            b.setFixedSize(width, 28)
+            b.setFixedSize(88, 28)
             b.clicked.connect(lambda _=False, j=job: slot(j))
             return b
 
-        open_btn = _btn("Mở file", self._open_job_file, 72)
-        folder_btn = _btn("Mở Thư mục", self._open_job_folder, 92)
-        del_btn = _btn("Xóa", self._delete_job_row, 52)
+        open_btn = _btn("Mở file", self._open_job_file)
+        folder_btn = _btn("Mở Thư mục", self._open_job_folder)
+        del_btn = _btn("Xóa", self._delete_job_row)
         lay.addWidget(open_btn)
         lay.addWidget(folder_btn)
         lay.addWidget(del_btn)
         if job.error_code or job.message:
-            detail = _btn("Chi tiết", self._show_job_error, 64)
+            detail = _btn("Chi tiết", self._show_job_error)
             lay.addWidget(detail)
         lay.addStretch(1)
         return wrap
