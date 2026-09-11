@@ -243,6 +243,8 @@ class MainWindow(QMainWindow):
             tbl_header.setStretchLastSection(False)
         self._table.setColumnWidth(1, 96)
         self._table.setColumnWidth(2, 210)
+        if tbl_header is not None:
+            tbl_header.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
         self._table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self._table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self._table.setWordWrap(False)
@@ -265,10 +267,7 @@ class MainWindow(QMainWindow):
         self._mode_combo = QComboBox()
         self._mode_combo.addItem("Vô hình — không đổi giao diện", userData="invisible")
         self._mode_combo.addItem("Hiển thị trên PDF", userData="visible")
-        self._mode_combo.setCurrentIndex(1)
-        saved_mode = str(self._settings.value("defaultSignatureMode", "visible"))
-        if saved_mode == "invisible":
-            self._mode_combo.setCurrentIndex(0)
+        self._select_mode(str(self._settings.value("defaultSignatureMode", "visible")))
         self._mode_combo.currentIndexChanged.connect(lambda _i: self._save_active_profile())
         self._mode_combo.hide()
 
@@ -357,6 +356,13 @@ class MainWindow(QMainWindow):
         data = self._color_combo.currentData()
         return data[0] if data else "navy"
 
+    def _select_mode(self, mode: str) -> None:
+        for i in range(self._mode_combo.count()):
+            if self._mode_combo.itemData(i) == mode:
+                self._mode_combo.setCurrentIndex(i)
+                return
+        self._mode_combo.setCurrentIndex(1)
+
     def _load_cert_profile(self, fingerprint: str, company: str = "") -> None:
         """Load per-cert profile; fall back to app defaults if none."""
         self._active_fingerprint = fingerprint or None
@@ -369,8 +375,7 @@ class MainWindow(QMainWindow):
                     4000,
                 )
             return
-        idx = 0 if prof.signature_mode == "visible" else 1
-        self._mode_combo.setCurrentIndex(idx)
+        self._select_mode(str(prof.signature_mode))
         for i in range(self._color_combo.count()):
             item = self._color_combo.itemData(i)
             if item and item[0] == prof.text_color_key:
@@ -391,7 +396,7 @@ class MainWindow(QMainWindow):
     def _load_app_defaults(self) -> None:
         """Apply last-used app-wide signature defaults (works without token)."""
         mode = str(self._settings.value("defaultSignatureMode", "visible"))
-        self._mode_combo.setCurrentIndex(0 if mode == "visible" else 1)
+        self._select_mode(mode)
         color_key = str(self._settings.value("signatureTextColor", "navy"))
         for i in range(self._color_combo.count()):
             item = self._color_combo.itemData(i)
@@ -713,8 +718,7 @@ class MainWindow(QMainWindow):
         if dlg.exec() != QDialog.DialogCode.Accepted:
             return
         r = dlg.values()
-        idx = 0 if r["mode"] == "visible" else 1
-        self._mode_combo.setCurrentIndex(idx)
+        self._select_mode(str(r["mode"]))
         for i in range(self._color_combo.count()):
             item = self._color_combo.itemData(i)
             if item and item[0] == r["color_key"]:
@@ -888,24 +892,24 @@ class MainWindow(QMainWindow):
 
         wrap = QWidget()
         lay = QHBoxLayout(wrap)
-        lay.setContentsMargins(2, 3, 2, 3)
-        lay.setSpacing(4)
-        open_btn = QPushButton("Mở file")
-        open_btn.setFixedSize(58, 22)
-        open_btn.clicked.connect(lambda _=False, j=job: self._open_job_file(j))
-        folder_btn = QPushButton("Mở folder")
-        folder_btn.setFixedSize(64, 22)
-        folder_btn.clicked.connect(lambda _=False, j=job: self._open_job_folder(j))
-        del_btn = QPushButton("Xóa")
-        del_btn.setFixedSize(40, 22)
-        del_btn.clicked.connect(lambda _=False, j=job: self._delete_job_row(j))
+        lay.setContentsMargins(4, 4, 4, 4)
+        lay.setSpacing(6)
+
+        def _btn(text: str, slot) -> QPushButton:  # noqa: ANN001
+            b = QPushButton(text)
+            b.setFixedHeight(24)
+            b.setMinimumWidth(64)
+            b.clicked.connect(lambda _=False, j=job: slot(j))
+            return b
+
+        open_btn = _btn("Mở", self._open_job_file)
+        folder_btn = _btn("Thư mục", self._open_job_folder)
+        del_btn = _btn("Xóa", self._delete_job_row)
         lay.addWidget(open_btn)
         lay.addWidget(folder_btn)
         lay.addWidget(del_btn)
         if job.error_code or job.message:
-            detail = QPushButton("Chi tiết")
-            detail.setFixedSize(52, 22)
-            detail.clicked.connect(lambda _=False, j=job: self._show_job_error(j))
+            detail = _btn("Chi tiết", self._show_job_error)
             lay.addWidget(detail)
         lay.addStretch(1)
         return wrap
