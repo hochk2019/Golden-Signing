@@ -896,16 +896,23 @@ class MainWindow(QMainWindow):
         self._table.setColumnWidth(2, 384 if has_detail else 292)
 
     def _make_action_widget(self, job) -> QWidget:  # noqa: ANN001
+        from PySide6.QtCore import Qt
         from PySide6.QtWidgets import QWidget
 
         wrap = QWidget()
         lay = QHBoxLayout(wrap)
-        lay.setContentsMargins(4, 4, 4, 4)
+        # Vertical margins 0 + AlignVCenter: 24px button sits mid 36px row
+        # so the bottom border is fully visible (matches status text height).
+        lay.setContentsMargins(4, 0, 4, 0)
         lay.setSpacing(6)
+        lay.setAlignment(
+            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
+        )
 
         def _btn(text: str, slot) -> QPushButton:  # noqa: ANN001
             b = QPushButton(text)
-            b.setFixedSize(88, 28)
+            b.setObjectName("tableActionBtn")
+            b.setFixedSize(88, 24)
             b.clicked.connect(lambda _=False, j=job: slot(j))
             return b
 

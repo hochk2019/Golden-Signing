@@ -48,6 +48,14 @@ QPushButton {{
     padding: 6px 12px;
     min-height: 28px;
 }}
+/* Compact row actions — must fit 36px table row with full bottom border. */
+QPushButton#tableActionBtn {{
+    padding: 0 8px;
+    min-height: 22px;
+    max-height: 22px;
+    border-radius: 4px;
+    font-size: 11px;
+}}
 QPushButton:hover {{
     border-color: {PRIMARY};
 }}

@@ -77,8 +77,8 @@ def test_action_buttons_equal_width(qapp: QApplication, tmp_path: Path) -> None:
     assert wrap is not None
     buttons = wrap.findChildren(QPushButton)
     assert len(buttons) == 3
-    widths = {b.width() for b in buttons}
-    assert widths == {88}
+    sizes = {(b.width(), b.height()) for b in buttons}
+    assert sizes == {(88, 24)}
     win.close()
 
 
