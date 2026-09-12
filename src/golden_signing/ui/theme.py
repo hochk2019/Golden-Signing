@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-__all__ = ["LIGHT_QSS", "apply_theme"]
+__all__ = ["LIGHT_QSS", "apply_theme", "apply_window_icon"]
 
 PRIMARY = "#1E3A5F"
 ON_PRIMARY = "#FFFFFF"
@@ -32,10 +32,12 @@ QLabel#productTitle {{
     font-size: 18px;
     font-weight: 600;
     color: {PRIMARY};
+    background: transparent;
 }}
 QLabel#productSub {{
     font-size: 11px;
     color: {MUTED_FG};
+    background: transparent;
 }}
 QFrame#rail {{
     background: {SURFACE};
@@ -149,4 +151,22 @@ LIGHT_QSS = LIGHT_QSS.replace("{check_url}", _check_icon_url())
 
 
 def apply_theme(app: object) -> None:
+    from PySide6.QtGui import QIcon
+
+    from golden_signing.storage.app_paths import app_icon_path
+
     app.setStyleSheet(LIGHT_QSS)  # type: ignore[attr-defined]
+    icon = app_icon_path()
+    if icon.is_file():
+        app.setWindowIcon(QIcon(str(icon)))  # type: ignore[attr-defined]
+
+
+def apply_window_icon(widget: object) -> None:
+    """Set brand icon on a top-level window/dialog (Windows title bar)."""
+    from PySide6.QtGui import QIcon
+
+    from golden_signing.storage.app_paths import app_icon_path
+
+    icon = app_icon_path()
+    if icon.is_file():
+        widget.setWindowIcon(QIcon(str(icon)))  # type: ignore[attr-defined]

@@ -36,13 +36,9 @@ class ApplyResult:
 
 
 def default_update_dir() -> Path:
-    base = Path.home() / "AppData" / "Local" / "GoldenSigning"
-    try:
-        base.mkdir(parents=True, exist_ok=True)
-    except OSError:
-        base = Path.home() / ".golden-signing"
-        base.mkdir(parents=True, exist_ok=True)
-    return base / "updates"
+    from golden_signing.storage.app_paths import data_dir
+
+    return data_dir() / "updates"
 
 
 def download_file(

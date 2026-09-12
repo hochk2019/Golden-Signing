@@ -1,17 +1,17 @@
-# BRANDING SPEC — Golden Signing
+# BRANDING SPEC — Golden Sign
 
-Date: 2026-09-09
+Date: 2026-09-09 (updated Phase 10 rename)
 Spec refs: §44.5b (Golden Branding), ui-ux-pro-max design-system search
 
 ## Product vs brand
 
 | Layer | Value |
 |---|---|
-| Product name | **Golden Signing** |
+| Product name | **Golden Sign** (legacy: Golden Signing) |
 | Developer | HOC HK |
 | Brand artwork | Golden Logistics (`golden.svg`) — **not** the product name |
 
-UI chrome always shows **Golden Signing**. Full GOLDEN LOGISTICS logo only in About / first-run branding slot.
+UI chrome always shows **Golden Sign**. Full GOLDEN LOGISTICS logo only in About / first-run branding slot.
 
 ## Source asset
 
@@ -24,10 +24,10 @@ UI chrome always shows **Golden Signing**. Full GOLDEN LOGISTICS logo only in Ab
 
 ## Placement (desktop)
 
-- **Sidebar expanded:** mark 36–40px + “Golden Signing” 17–19px semibold + optional “Ký số PDF”
+- **Sidebar expanded:** mark 36–40px + “Golden Sign” 17–19px semibold + optional “Ký số PDF”
 - **Sidebar collapsed:** mark 28–32px + tooltip
 - **Workspace:** no large logo over PDF area
-- **Title bar:** `Golden Signing — Ký số PDF` (no second large logo)
+- **Title bar:** `Golden Sign — Ký số PDF` (no second large logo)
 - **About:** full logo medium size + developer block + disclaimer
 
 ## Color derivation (from logo + Pro Max)

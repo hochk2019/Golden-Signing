@@ -12,14 +12,10 @@ __all__ = ["CertProfile", "CertProfileStore", "default_store_path"]
 
 
 def default_store_path() -> Path:
-    """%LOCALAPPDATA%/GoldenSigning/cert_profiles.json on Windows."""
-    base = Path.home() / "AppData" / "Local" / "GoldenSigning"
-    try:
-        base.mkdir(parents=True, exist_ok=True)
-    except OSError:
-        base = Path.home() / ".golden-signing"
-        base.mkdir(parents=True, exist_ok=True)
-    return base / "cert_profiles.json"
+    """%LOCALAPPDATA%/GoldenSign/cert_profiles.json on Windows."""
+    from golden_signing.storage.app_paths import data_dir
+
+    return data_dir() / "cert_profiles.json"
 
 
 @dataclass

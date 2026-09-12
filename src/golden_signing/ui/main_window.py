@@ -1,4 +1,4 @@
-"""Golden Signing main window — token-aware Phase 5 UI."""
+"""Golden Sign main window — token-aware Phase 5 UI."""
 
 from __future__ import annotations
 
@@ -54,6 +54,9 @@ class CertPickerDialog(QDialog):
 
     def __init__(self, certs: list, parent: QWidget | None = None) -> None:
         super().__init__(parent)
+        from golden_signing.ui.theme import apply_window_icon
+
+        apply_window_icon(self)
         self.setWindowTitle("Chọn chứng thư số")
         self.setModal(True)
         self.setMinimumWidth(420)
@@ -116,7 +119,10 @@ def _short_cert_label(cert) -> str:  # noqa: ANN001
 class MainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
-        self.setWindowTitle("Golden Signing — Ký số PDF")
+        self.setWindowTitle("Golden Sign — Ký số PDF")
+        from golden_signing.ui.theme import apply_window_icon
+
+        apply_window_icon(self)
         self.resize(1080, 700)
         self.setAcceptDrops(True)
 
@@ -178,7 +184,7 @@ class MainWindow(QMainWindow):
         mark.setFixedHeight(40)
         lay.addWidget(mark)
 
-        title = QLabel("Golden Signing")
+        title = QLabel("Golden Sign")
         title.setObjectName("productTitle")
         sub = QLabel("Ký số PDF")
         sub.setObjectName("productSub")
@@ -514,7 +520,7 @@ class MainWindow(QMainWindow):
         try:
             result = batch.run()
         except Exception as exc:  # noqa: BLE001
-            QMessageBox.critical(self, "Golden Signing", f"Lỗi khi ký:\n{exc}")
+            QMessageBox.critical(self, "Golden Sign", f"Lỗi khi ký:\n{exc}")
             self._sign_btn.setEnabled(True)
             return
         finally:
@@ -544,7 +550,7 @@ class MainWindow(QMainWindow):
             f"{j.input_path.name}: {j.message}" for j in result.jobs if j.error_code
         ]
         extra = ("\n\n" + "\n".join(failed_msgs[:5])) if failed_msgs else ""
-        title = "Golden Signing"
+        title = "Golden Sign"
         out_dir = batch._output_dir if hasattr(batch, "_output_dir") else ""  # noqa: SLF001
         if result.failed:
             QMessageBox.warning(
@@ -620,11 +626,11 @@ class MainWindow(QMainWindow):
             }
         ]
         if not failed:
-            QMessageBox.information(self, "Golden Signing", "Không có file lỗi để ký lại.")
+            QMessageBox.information(self, "Golden Sign", "Không có file lỗi để ký lại.")
             return
         engine = self._token_signer or self._lab_signer
         if engine is None:
-            QMessageBox.information(self, "Golden Signing", "Hãy ký ít nhất một lần trước.")
+            QMessageBox.information(self, "Golden Sign", "Hãy ký ít nhất một lần trước.")
             return
         from golden_signing.batch.state import JobState
 
@@ -688,7 +694,7 @@ class MainWindow(QMainWindow):
                 opener = "open" if sys.platform == "darwin" else "xdg-open"
                 subprocess.Popen([opener, str(path)])
         except Exception as exc:  # noqa: BLE001
-            QMessageBox.warning(self, "Golden Signing", f"Không mở được:\n{exc}")
+            QMessageBox.warning(self, "Golden Sign", f"Không mở được:\n{exc}")
 
     # --- nav ----------------------------------------------------------
 
@@ -769,20 +775,25 @@ class MainWindow(QMainWindow):
 
     def _nav_about(self) -> None:
         from golden_signing import __version__
+        from golden_signing.ui.theme import apply_window_icon
         from golden_signing.ui.update_dialog import UpdateCheckDialog
 
         dlg = QDialog(self)
+        apply_window_icon(dlg)
         dlg.setWindowTitle("Giới thiệu")
         dlg.setModal(True)
-        dlg.setMinimumWidth(420)
+        dlg.setMinimumWidth(440)
         lay = QVBoxLayout(dlg)
         lay.setContentsMargins(16, 16, 16, 12)
         lay.setSpacing(10)
         info = QLabel(
-            "Golden Signing\nPDF Digital Signature Utility\n"
+            "Golden Sign\nPDF Digital Signature Utility\n"
             "Developer: HOC HK\nhochk2019@gmail.com · 0868.333.606\n"
             f"Phiên bản {__version__}\n\n"
-            "Miễn trừ: công cụ hỗ trợ ký số; không đảm bảo mọi hệ thống bên thứ ba chấp nhận."
+            "Đây là ứng dụng phi lợi nhuận, không nhằm mục đích thương mại, "
+            "người dùng tự chịu mọi trách nhiệm khi sử dụng ứng dụng này để ký số file PDF.\n\n"
+            "Liên hệ để được tư vấn thủ tục hải quan miễn phí — "
+            "Làm thủ tục Hải quan và dịch vụ vận chuyển toàn quốc."
         )
         info.setWordWrap(True)
         lay.addWidget(info)
@@ -998,7 +1009,7 @@ class MainWindow(QMainWindow):
         elif Path(job.input_path).is_file():
             target = Path(job.input_path)
         if target is None:
-            QMessageBox.warning(self, "Golden Signing", "Không tìm thấy file.")
+            QMessageBox.warning(self, "Golden Sign", "Không tìm thấy file.")
             return
         self._open_path(target)
 
@@ -1029,7 +1040,7 @@ class MainWindow(QMainWindow):
     def _on_sign(self) -> None:
         jobs = [j for j in self._model.jobs() if not j.is_terminal]
         if not jobs:
-            QMessageBox.information(self, "Golden Signing", "Không có file chờ ký.")
+            QMessageBox.information(self, "Golden Sign", "Không có file chờ ký.")
             return
 
         engine = self._token_signer
@@ -1053,7 +1064,7 @@ class MainWindow(QMainWindow):
                 self._profile_label.setText("Profile: PUS Safe · lab (test cert)")
                 fp = getattr(engine, "certificate_fingerprint_sha256", "") or ""
                 if fp and self._active_fingerprint != fp:
-                    self._load_cert_profile(fp, company="Golden Signing Lab")
+                    self._load_cert_profile(fp, company="Golden Sign Lab")
 
         profile = self._make_profile(engine)
         self._apply_engine_appearance(engine)
@@ -1077,9 +1088,17 @@ class MainWindow(QMainWindow):
 def run_app() -> int:
     import sys
 
+    from PySide6.QtGui import QIcon
     from PySide6.QtWidgets import QApplication
 
+    from golden_signing.storage.app_paths import app_icon_path
+
     app = QApplication(sys.argv)
+    app.setApplicationName("Golden Sign")
+    app.setOrganizationName("HOCHK")
+    icon_path = app_icon_path()
+    if icon_path.is_file():
+        app.setWindowIcon(QIcon(str(icon_path)))
     apply_theme(app)
     win = MainWindow()
     win.show()

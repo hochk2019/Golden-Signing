@@ -21,6 +21,9 @@ __all__ = ["JobErrorDialog"]
 class JobErrorDialog(QDialog):
     def __init__(self, job: SigningJob, parent: QWidget | None = None) -> None:
         super().__init__(parent)
+        from golden_signing.ui.theme import apply_window_icon
+
+        apply_window_icon(self)
         self.setWindowTitle("Chi tiết lỗi")
         self.setMinimumSize(480, 280)
         self.setModal(True)

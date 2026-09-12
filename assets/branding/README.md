@@ -1,4 +1,4 @@
-# Branding assets — Golden Signing
+# Branding assets — Golden Sign
 
 | File | Role | Notes |
 |---|---|---|
@@ -7,7 +7,7 @@
 | `golden-app-icon.ico` | Windows icon | 16–256px generated from mark |
 | `golden-full-preview.png` | About / docs preview 512px | Same badge |
 
-Product name in UI is **Golden Signing**, not Golden Logistics. See `docs/design/BRANDING_SPEC.md`.
+Product name in UI is **Golden Sign**, not Golden Logistics. See `docs/design/BRANDING_SPEC.md`.
 
 ## Pipeline (how assets were generated)
 

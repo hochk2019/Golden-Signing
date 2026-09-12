@@ -38,6 +38,9 @@ class SettingsDialog(QDialog):
 
     def __init__(self, settings, parent: QWidget | None = None) -> None:
         super().__init__(parent)
+        from golden_signing.ui.theme import apply_window_icon
+
+        apply_window_icon(self)
         self._settings = settings
         self.setWindowTitle("Cài đặt")
         self.setMinimumWidth(480)

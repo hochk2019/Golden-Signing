@@ -1,8 +1,8 @@
-# Golden Signing
+# Golden Sign
 
 PDF digital signature utility for Windows. Ký số PDF nhanh, ổn định, ưu tiên tương thích quy trình Hải quan (PUS) — **không** phải công cụ chèn ảnh chữ ký.
 
-- Spec: `Golden Signing v1.2.0.md`
+Tên hiển thị: **Golden Sign** (trước đây: Golden Signing). Spec gốc: `Golden Signing v1.2.0.md`.
 - Version target: `0.1.0-alpha`
 - Developer: HOC HK — hochk2019@gmail.com — 0868.333.606
 

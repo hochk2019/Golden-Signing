@@ -34,7 +34,7 @@ def test_theme_contains_primary(qapp: QApplication) -> None:
 
 def test_main_window_constructs(qapp: QApplication) -> None:
     win = MainWindow()
-    assert win.windowTitle().startswith("Golden Signing")
+    assert win.windowTitle().startswith("Golden Sign")
     assert win._sign_btn.isEnabled() is False
     win.close()
 

@@ -131,6 +131,9 @@ class SigPositionDialog(QDialog):
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
+        from golden_signing.ui.theme import apply_window_icon
+
+        apply_window_icon(self)
         self.setWindowTitle("Vị trí ký")
         self.setMinimumSize(700, 620)
         self.setModal(True)

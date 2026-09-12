@@ -26,6 +26,9 @@ __all__ = ["HistoryDialog"]
 class HistoryDialog(QDialog):
     def __init__(self, history: SigningHistory, parent: QWidget | None = None) -> None:
         super().__init__(parent)
+        from golden_signing.ui.theme import apply_window_icon
+
+        apply_window_icon(self)
         self._history = history
         self.setWindowTitle("Lịch sử ký")
         self.setMinimumSize(720, 400)

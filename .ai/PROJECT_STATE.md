@@ -30,14 +30,15 @@ Status legend: DONE | IN_PROGRESS | BLOCKED | TODO | DEFERRED
 | P7-03 | Log redaction (PIN/PEM) + file logger | DONE | — | `security/redaction.py` | unit 6 | a398782 | — |
 | P7-04 | Diagnostic export / support bundle / health-check UI | DEFERRED | — | — | — | user: not needed | — |
 | P8-00 | Update via GitHub Releases (latest + SHA256 + rollback/stage) | DONE | — | `updater/`, UI | unit 13 | phase-8 spec | fill `update/repo` |
-| P9-00 | Packaging PyInstaller + code-sign | TODO | P8 | — | — | — | Phase 9 |
+| P10-00 | Branding: window icons, productSub bg, rename Golden Sign, About, AppData→GoldenSign | DONE | — | `app_paths.py`, theme, UI | unit + smoke | phase-10 spec | user GUI glance |
+| P9-00 | Packaging PyInstaller + code-sign | TODO | P8 | — | — | — | Phase 9 (user: later) |
 | — | PUS real upload | DONE | env | — | — | user confirmed 2026-09-11 | — |
 
 ## Verification evidence
 
-- `pytest -q` — **PASS** exit 0 (full suite + updater + log redaction)
+- `pytest -q` — **PASS** exit 0 (full suite + Phase 10)
 - PUS upload: user confirmed success
 
 ## Status label
 
-`PHASE 2–8 COMPLETE + PUS OK / PACKAGING (PHASE 9) PENDING`
+`PHASE 2–8 + 10 (GOLDEN SIGN BRANDING) + PUS OK / PACKAGING (PHASE 9) LATER`

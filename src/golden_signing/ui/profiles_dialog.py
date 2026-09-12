@@ -24,6 +24,9 @@ __all__ = ["ProfilesDialog"]
 class ProfilesDialog(QDialog):
     def __init__(self, store: CertProfileStore, parent: QWidget | None = None) -> None:
         super().__init__(parent)
+        from golden_signing.ui.theme import apply_window_icon
+
+        apply_window_icon(self)
         self._store = store
         self.setWindowTitle("Hồ sơ ký")
         self.setMinimumSize(720, 400)

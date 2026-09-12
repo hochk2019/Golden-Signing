@@ -69,13 +69,9 @@ def setup_app_logging(
         return logger
 
     if log_dir is None:
-        base = Path.home() / "AppData" / "Local" / "GoldenSigning"
-        try:
-            base.mkdir(parents=True, exist_ok=True)
-        except OSError:
-            base = Path.home() / ".golden-signing"
-            base.mkdir(parents=True, exist_ok=True)
-        log_dir = base / "logs"
+        from golden_signing.storage.app_paths import data_dir
+
+        log_dir = data_dir() / "logs"
     log_path = Path(log_dir)
     log_path.mkdir(parents=True, exist_ok=True)
     handler = logging.FileHandler(log_path / "app.log", encoding="utf-8")

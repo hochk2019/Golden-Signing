@@ -26,13 +26,9 @@ CREATE INDEX IF NOT EXISTS idx_hist_ts ON signing_history(ts DESC);
 
 
 def default_history_path() -> Path:
-    base = Path.home() / "AppData" / "Local" / "GoldenSigning"
-    try:
-        base.mkdir(parents=True, exist_ok=True)
-    except OSError:
-        base = Path.home() / ".golden-signing"
-        base.mkdir(parents=True, exist_ok=True)
-    return base / "history.db"
+    from golden_signing.storage.app_paths import data_dir
+
+    return data_dir() / "history.db"
 
 
 @dataclass(frozen=True, slots=True)

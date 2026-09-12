@@ -45,6 +45,9 @@ class UpdateOfferDialog(QDialog):
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
+        from golden_signing.ui.theme import apply_window_icon
+
+        apply_window_icon(self)
         self.setWindowTitle("Có bản cập nhật mới")
         self.setModal(True)
         self.setMinimumSize(480, 360)
@@ -57,7 +60,7 @@ class UpdateOfferDialog(QDialog):
         root.setSpacing(10)
 
         head = QLabel(
-            f"Golden Signing {info.tag} đã có sẵn.\n"
+            f"Golden Sign {info.tag} đã có sẵn.\n"
             f"Bạn đang dùng: {local_version}"
         )
         head.setWordWrap(True)
