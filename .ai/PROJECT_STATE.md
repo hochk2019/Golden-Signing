@@ -26,16 +26,18 @@ Status legend: DONE | IN_PROGRESS | BLOCKED | TODO | DEFERRED
 | P6-04 | Empty-password encrypted PDF sign/verify | DONE | P1 | `pdf/crypto.py` | user file test | 5df8c38 | — |
 | P6-05 | Per-cert profiles + action column + Settings | DONE | P6 | `storage/cert_profiles.py`, UI | unit | c0acc48 | — |
 | P7-01 | Drag position stamp + error details + verify + pause/retry | DONE | P6 | `sig_position_dialog.py`, UI | smoke + pytest | 05399b2 | user GUI |
-| P7-02 | History SQLite + diagnostics export + watch folder | DONE | P4 | `storage/history.py`, `diagnostics/export.py` | unit | 9e85be5 | user GUI |
-| P8-00 | Update system (signed manifest) | TODO | P9 | `updater/` | — | — | Phase 8 |
+| P7-02 | History SQLite | DONE | P4 | `storage/history.py` | unit | 9e85be5 | user GUI |
+| P7-03 | Log redaction (PIN/PEM) + file logger | DONE | — | `security/redaction.py` | unit 6 | this commit | — |
+| P7-04 | Diagnostic export / support bundle / health-check UI | DEFERRED | — | — | — | user: not needed | — |
+| P8-00 | Update via GitHub Releases (latest + SHA256 + rollback) | TODO | P9 | `updater/` | — | — | Phase 8 |
 | P9-00 | Packaging PyInstaller + code-sign | TODO | P8 | — | — | — | Phase 9 |
 | — | PUS real upload | BLOCKED | env | — | — | — | user Hải quan |
 
 ## Verification evidence
 
-- `pytest -q` — **PASS** exit 0 (full suite overnight)
-- Cert profile roundtrip + history CSV + diagnostics JSON tests green
+- `pytest -q` — **PASS** exit 0 (full suite + log redaction)
+- Cert profile roundtrip + history CSV tests green
 
 ## Status label
 
-`PHASE 2–7 CORE UX COMPLETE (DRAG POS + HISTORY + DIAG + WATCH) / UPDATE + PACKAGING + PUS PENDING`
+`PHASE 2–7 CORE + LOG REDACTION / UPDATE (GITHUB) + PACKAGING + PUS PENDING`

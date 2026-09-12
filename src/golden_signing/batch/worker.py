@@ -7,6 +7,7 @@ from typing import Protocol
 
 from golden_signing.batch.state import JobState, SigningJob
 from golden_signing.pdf.inspection import preflight_pdf
+from golden_signing.security.redaction import redact
 from golden_signing.signing.contracts import PreflightLevel, SigningProfile
 from golden_signing.signing.exceptions import IoError
 
@@ -90,12 +91,12 @@ def process_one_job(
     except IoError as exc:
         job.state = JobState.IO_ERROR
         job.error_code = exc.code
-        job.message = str(exc)
+        job.message = redact(str(exc))
         return job
     except Exception as exc:  # noqa: BLE001
         job.state = JobState.SIGN_FAILED
         job.error_code = "SIGN_FAILED"
-        job.message = str(exc)
+        job.message = redact(str(exc))
         return job
 
     success = getattr(result, "success", False)
@@ -111,6 +112,6 @@ def process_one_job(
 
     code = getattr(result, "error_code", None) or "SIGN_FAILED"
     job.error_code = code
-    job.message = getattr(result, "message", "") or "sign failed"
+    job.message = redact(getattr(result, "message", "") or "sign failed")
     job.state = _map_error_to_state(code)
     return job
