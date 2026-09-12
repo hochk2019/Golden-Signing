@@ -89,6 +89,10 @@ class SettingsDialog(QDialog):
         )
         form.addRow("", self._autoscan)
 
+        self._repo = QLineEdit(str(settings.value("update/repo", "") or ""))
+        self._repo.setPlaceholderText("owner/name — ví dụ hockh/golden-signing")
+        form.addRow("GitHub repo cập nhật", self._repo)
+
         root.addLayout(form)
 
         # Cert profiles
@@ -164,4 +168,5 @@ class SettingsDialog(QDialog):
         s.setValue("signatureTextColor", self._color.currentData())
         s.setValue("signatureBg", "1" if self._bg.isChecked() else "0")
         s.setValue("autoScanToken", "1" if self._autoscan.isChecked() else "0")
+        s.setValue("update/repo", self._repo.text().strip())
         self.accept()

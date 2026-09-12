@@ -765,14 +765,34 @@ class MainWindow(QMainWindow):
         self._load_app_defaults()
 
     def _nav_about(self) -> None:
-        QMessageBox.information(
-            self,
-            "Giới thiệu",
+        from golden_signing import __version__
+        from golden_signing.ui.update_dialog import UpdateCheckDialog
+
+        dlg = QDialog(self)
+        dlg.setWindowTitle("Giới thiệu")
+        dlg.setModal(True)
+        dlg.setMinimumWidth(420)
+        lay = QVBoxLayout(dlg)
+        lay.setContentsMargins(16, 16, 16, 12)
+        lay.setSpacing(10)
+        info = QLabel(
             "Golden Signing\nPDF Digital Signature Utility\n"
             "Developer: HOC HK\nhochk2019@gmail.com · 0868.333.606\n"
-            "Phiên bản 0.1.0-alpha\n\n"
-            "Miễn trừ: công cụ hỗ trợ ký số; không đảm bảo mọi hệ thống bên thứ ba chấp nhận.",
+            f"Phiên bản {__version__}\n\n"
+            "Miễn trừ: công cụ hỗ trợ ký số; không đảm bảo mọi hệ thống bên thứ ba chấp nhận."
         )
+        info.setWordWrap(True)
+        lay.addWidget(info)
+        row = QHBoxLayout()
+        check_btn = QPushButton("Kiểm tra cập nhật")
+        check_btn.clicked.connect(lambda: UpdateCheckDialog(self._settings, self).exec())
+        row.addWidget(check_btn)
+        row.addStretch(1)
+        close_btn = QPushButton("Đóng")
+        close_btn.clicked.connect(dlg.accept)
+        row.addWidget(close_btn)
+        lay.addLayout(row)
+        dlg.exec()
 
     # --- token --------------------------------------------------------
 
