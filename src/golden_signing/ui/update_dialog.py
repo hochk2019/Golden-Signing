@@ -74,7 +74,9 @@ class UpdateCheckDialog(QDialog):
         self._tag: str | None = None
 
     def _repo(self) -> str:
-        return str(self._settings.value("update/repo", "") or "").strip()
+        from golden_signing.updater.check import resolve_repo
+
+        return resolve_repo(str(self._settings.value("update/repo", "") or ""))
 
     def _on_check(self) -> None:
         from golden_signing.updater.check import check_for_update

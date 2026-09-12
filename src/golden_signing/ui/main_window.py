@@ -154,6 +154,9 @@ class MainWindow(QMainWindow):
         else:
             self._token_note.setText("Tự quét token đã tắt (Cài đặt).")
         self._load_app_defaults()
+        self._update_thread = None
+        if str(self._settings.value("autoCheckUpdate", "1")) not in ("0", "false", "False"):
+            QTimer.singleShot(1800, self._auto_check_update)
 
     def _build_rail(self) -> QFrame:
         rail = QFrame()
@@ -793,6 +796,35 @@ class MainWindow(QMainWindow):
         row.addWidget(close_btn)
         lay.addLayout(row)
         dlg.exec()
+
+    def _auto_check_update(self) -> None:
+        """Background check on launch; offer dialog only when a newer release exists."""
+        from golden_signing.ui.update_offer_dialog import UpdateCheckThread
+        from golden_signing.updater.check import resolve_repo
+
+        if self._update_thread is not None and self._update_thread.isRunning():
+            return
+        repo = resolve_repo(str(self._settings.value("update/repo", "") or ""))
+        self._update_thread = UpdateCheckThread(repo, self)
+        self._update_thread.result.connect(self._on_auto_update_result)
+        self._update_thread.start()
+
+    def _on_auto_update_result(self, result: object) -> None:
+        from golden_signing.ui.update_offer_dialog import offer_if_newer
+
+        ok = bool(getattr(result, "ok", False))
+        newer = bool(getattr(result, "newer", False))
+        if not ok or not newer:
+            return
+        did = offer_if_newer(result, self)  # type: ignore[arg-type]
+        if did:
+            # Staged swap + relaunch already started — exit this process.
+            self.close()
+            from PySide6.QtWidgets import QApplication
+
+            app = QApplication.instance()
+            if app is not None:
+                app.quit()
 
     # --- token --------------------------------------------------------
 

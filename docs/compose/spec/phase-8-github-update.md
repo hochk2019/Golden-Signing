@@ -10,9 +10,9 @@ commits: a398782..HEAD
 
 ## Report
 
-**What was built** — Package `golden_signing.updater`: parse/compare versions, fetch GitHub `/releases/latest`, pick `GoldenSigning-*-win64.zip`, load `checksums.txt`, download+SHA256-verify, extract to `%LOCALAPPDATA%\GoldenSigning\updates\staged-<ver>`, backup live dir to `updates/previous`, restore on failure. UI: *Giới thiệu → Kiểm tra cập nhật* with check / open release / stage buttons. *Cài đặt* has `update/repo` (`owner/name`). Dev/source only stages files (does not replace running tree).
+**What was built** — Package `golden_signing.updater`: parse/compare versions, fetch GitHub `/releases/latest`, pick `GoldenSigning-*-win64.zip`, load `checksums.txt`, download+SHA256-verify, extract to `%LOCALAPPDATA%\GoldenSigning\updates\staged-<ver>`, backup live dir to `updates/previous`, restore on failure. UI: *Giới thiệu → Kiểm tra cập nhật*; **auto-check ~1.8s after launch** (QThread) when `autoCheckUpdate` on — if newer: **UpdateOfferDialog** with tag + release body (notes) → *Cập nhật ngay* / *Để sau* / *Mở GitHub*. On accept: stage + SHA256; **frozen onedir**: swap `app_dir` + `relaunch_app()` then quit; **source**: stage only. Default repo `hochk2019/Golden-Signing` (`resolve_repo`). Cài đặt: toggle auto-check + repo override.
 
-**Verification** — `pytest tests/unit/test_updater.py tests/unit/test_update_dialog.py` PASS (13); full suite `pytest -q` exit 0.
+**Verification** — updater + dialog + offer tests PASS; full suite `pytest -q` exit 0.
 
 **Journey log**
 - Scope cut by user: no minisign, no beta/stable, no auto-restart.
@@ -61,14 +61,18 @@ Khi chạy từ source (dev, không phải onedir): chỉ **check + báo** versi
 
 - Trong **Giới thiệu**: nút **Kiểm tra cập nhật**
 - Hộp thoại: đang check / đã mới nhất / có bản `vX.Y.Z` → Tải & chuẩn bị / Mở trang Release / lỗi mạng
-- Auto-check nhẹ khi mở app **không** dialog ồn ào — chỉ badge/link ở Giới thiệu (optional v1: chỉ manual)
+- **Auto-check khi mở app** (~1.8s, background thread). Chỉ dialog khi có bản mới.
+- **UpdateOfferDialog**: version mới, bản local, release notes (`body`) → *Cập nhật ngay* / *Để sau*
+- Sau khi cài (frozen): relaunch EXE và quit process hiện tại
+- Repo mặc định: `hochk2019/Golden-Signing` (QSettings override)
+- Cài đặt: *Tự kiểm tra cập nhật khi mở app*
 
 ### Out of scope (S3)
 
 - Kênh beta/stable
 - Chữ ký minisign/ed25519
 - Differential/patch update
-- Tự động restart không hỏi
+- Cập nhật khi đang chạy từ source (chỉ stage)
 
 ## Tasks
 
@@ -77,3 +81,4 @@ Khi chạy từ source (dev, không phải onedir): chỉ **check + báo** versi
 - [x] T3: download + extract + backup + rollback state machine (unit, tmp dirs) — acceptance: apply ok; bad hash abort; rollback restores previous (covers: S2)
 - [x] T4: UI Kiểm tra cập nhật trong Giới thiệu (offscreen smoke) — acceptance: dialog states; no crash when repo empty/offline (covers: S2)
 - [x] T5: bootstrap logging still green + full pytest — acceptance: exit 0 (covers: S2)
+- [x] T6: Auto-check on launch + offer dialog (notes) + frozen relaunch — acceptance: default repo; dialog shows body; frozen path apply+relaunch (covers: S2)

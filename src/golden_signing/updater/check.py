@@ -16,7 +16,15 @@ from golden_signing.updater.github import (
 from golden_signing.updater.verify import parse_checksums
 from golden_signing.updater.version import Version, parse_version
 
-__all__ = ["CheckResult", "check_for_update"]
+__all__ = ["DEFAULT_UPDATE_REPO", "CheckResult", "check_for_update", "resolve_repo"]
+
+DEFAULT_UPDATE_REPO = "hochk2019/Golden-Signing"
+
+
+def resolve_repo(configured: str | None) -> str:
+    """Prefer QSettings value; fall back to the public GitHub repo slug."""
+    text = (configured or "").strip()
+    return text if text else DEFAULT_UPDATE_REPO
 
 
 class CheckResult:

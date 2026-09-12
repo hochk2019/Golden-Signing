@@ -89,8 +89,17 @@ class SettingsDialog(QDialog):
         )
         form.addRow("", self._autoscan)
 
-        self._repo = QLineEdit(str(settings.value("update/repo", "") or ""))
-        self._repo.setPlaceholderText("owner/name — ví dụ hockh/golden-signing")
+        self._auto_update = QCheckBox("Tự kiểm tra cập nhật khi mở app")
+        self._auto_update.setChecked(
+            str(settings.value("autoCheckUpdate", "1")) not in ("0", "false", "False")
+        )
+        form.addRow("", self._auto_update)
+
+        from golden_signing.updater.check import DEFAULT_UPDATE_REPO
+
+        repo_val = str(settings.value("update/repo", "") or "")
+        self._repo = QLineEdit(repo_val)
+        self._repo.setPlaceholderText(f"mặc định {DEFAULT_UPDATE_REPO}")
         form.addRow("GitHub repo cập nhật", self._repo)
 
         root.addLayout(form)
@@ -168,5 +177,6 @@ class SettingsDialog(QDialog):
         s.setValue("signatureTextColor", self._color.currentData())
         s.setValue("signatureBg", "1" if self._bg.isChecked() else "0")
         s.setValue("autoScanToken", "1" if self._autoscan.isChecked() else "0")
+        s.setValue("autoCheckUpdate", "1" if self._auto_update.isChecked() else "0")
         s.setValue("update/repo", self._repo.text().strip())
         self.accept()
