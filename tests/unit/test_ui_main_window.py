@@ -34,8 +34,13 @@ def test_theme_contains_primary(qapp: QApplication) -> None:
 
 def test_main_window_constructs(qapp: QApplication) -> None:
     win = MainWindow()
-    assert win.windowTitle().startswith("Golden Sign")
+    assert win.windowTitle() == "Golden Sign — Sản phẩm của Golden Logistics"
     assert win._sign_btn.isEnabled() is False
+    from PySide6.QtWidgets import QLabel
+
+    texts = [b.text() for b in win.findChildren(QLabel)]
+    assert "Designer: Hoc HK" in texts
+    assert "Ký số PDF" in texts
     win.close()
 
 

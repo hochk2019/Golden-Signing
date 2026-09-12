@@ -4,6 +4,7 @@
 |---|---|---|
 | `golden.svg` | Source artwork (Golden Logistics) | **Do not modify** — 3.2MB VTracer |
 | `golden-mark.png` | App/sidebar mark 512px | Full diamond badge (recognizable); replace with icon-only cutout if brand owner provides |
+| `golden-mark-ui.png` | Sidebar mark (transparent bg) | Near-white pixels cleared so mark sits on #FFFFFF rail |
 | `golden-app-icon.ico` | Windows icon | 16–256px generated from mark |
 | `golden-full-preview.png` | About / docs preview 512px | Same badge |
 

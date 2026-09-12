@@ -46,6 +46,10 @@ __all__ = ["MainWindow"]
 def _brand_mark_path() -> Path:
     here = Path(__file__).resolve()
     root = here.parents[3]
+    # Prefer transparent-bg mark for white sidebar; fall back to original.
+    ui = root / "assets" / "branding" / "golden-mark-ui.png"
+    if ui.is_file():
+        return ui
     return root / "assets" / "branding" / "golden-mark.png"
 
 
@@ -119,7 +123,7 @@ def _short_cert_label(cert) -> str:  # noqa: ANN001
 class MainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
-        self.setWindowTitle("Golden Sign — Ký số PDF")
+        self.setWindowTitle("Golden Sign — Sản phẩm của Golden Logistics")
         from golden_signing.ui.theme import apply_window_icon
 
         apply_window_icon(self)
@@ -173,6 +177,8 @@ class MainWindow(QMainWindow):
         lay.setSpacing(8)
 
         mark = QLabel()
+        mark.setObjectName("brandMark")
+        mark.setFixedWidth(40)
         mark_path = _brand_mark_path()
         if mark_path.is_file():
             from PySide6.QtGui import QPixmap
@@ -188,8 +194,11 @@ class MainWindow(QMainWindow):
         title.setObjectName("productTitle")
         sub = QLabel("Ký số PDF")
         sub.setObjectName("productSub")
+        designer = QLabel("Designer: Hoc HK")
+        designer.setObjectName("productMeta")
         lay.addWidget(title)
         lay.addWidget(sub)
+        lay.addWidget(designer)
         lay.addSpacing(16)
 
         for label, handler in (

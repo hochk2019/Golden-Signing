@@ -28,6 +28,10 @@ QWidget {{
 QMainWindow, QWidget#sidebar {{
     background: {SURFACE};
 }}
+/* Labels must not paint the global #F8FAFC — breaks white sidebar/rail. */
+QLabel {{
+    background: transparent;
+}}
 QLabel#productTitle {{
     font-size: 18px;
     font-weight: 600;
@@ -38,6 +42,16 @@ QLabel#productSub {{
     font-size: 11px;
     color: {MUTED_FG};
     background: transparent;
+}}
+QLabel#productMeta {{
+    font-size: 10px;
+    color: {MUTED_FG};
+    background: transparent;
+}}
+QLabel#brandMark {{
+    background: transparent;
+    padding: 0;
+    margin: 0;
 }}
 QFrame#rail {{
     background: {SURFACE};

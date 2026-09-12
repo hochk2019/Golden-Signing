@@ -10,9 +10,9 @@ commits: 4a39bb1..HEAD
 
 ## Report
 
-**What was built** — Window icon (`golden-app-icon.ico`) on QApplication + every main dialog. `productTitle`/`productSub` forced `background: transparent` so “Ký số PDF” matches sidebar. User-facing name **Golden Sign** (package `golden_signing` unchanged). About: non-profit disclaimer + customs consulting contact line. App data migrates once from `%LOCALAPPDATA%\GoldenSigning` → `GoldenSign`.
+**What was built** — Window icon (`golden-app-icon.ico`) on QApplication + every main dialog. All `QLabel`s `background: transparent` (global `QWidget` #F8FAFC no longer tints the white rail). Sidebar uses `golden-mark-ui.png` (near-white cleared). User-facing name **Golden Sign**. Title bar: `Golden Sign — Sản phẩm của Golden Logistics`. Sidebar: Golden Sign / Ký số PDF / **Designer: Hoc HK**. About: non-profit disclaimer + customs line. App data migrates once from `%LOCALAPPDATA%\GoldenSigning` → `GoldenSign`.
 
-**Verification** — full `pytest -q` exit 0; smoke: title `Golden Sign — Ký số PDF`, icons non-null offscreen.
+**Verification** — full `pytest -q` exit 0; smoke: title + Designer label.
 
 ## [S1] Problem
 
