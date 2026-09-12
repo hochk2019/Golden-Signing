@@ -148,6 +148,80 @@ QCheckBox::indicator:checked:disabled {{
     background: #94A3B8;
     border-color: #94A3B8;
 }}
+/* Token dialogs */
+QFrame#dlgHeader {{
+    background: {SURFACE};
+    border: none;
+    border-bottom: 1px solid {BORDER};
+}}
+QFrame#dlgFooter {{
+    background: {SURFACE};
+    border: none;
+    border-top: 1px solid {BORDER};
+}}
+QWidget#dlgBody {{
+    background: {BACKGROUND};
+}}
+QLabel#dlgTitle {{
+    font-size: 16px;
+    font-weight: 600;
+    color: {PRIMARY};
+    background: transparent;
+}}
+QLabel#dlgSubtitle {{
+    font-size: 12px;
+    color: {MUTED_FG};
+    background: transparent;
+}}
+QLabel#fieldLabel {{
+    font-size: 12px;
+    font-weight: 600;
+    color: {FOREGROUND};
+    background: transparent;
+}}
+QFrame#certCard {{
+    background: {SURFACE};
+    border: 1px solid {BORDER};
+    border-radius: 8px;
+    border-left: 3px solid {BORDER};
+}}
+QFrame#certCard[selected="true"] {{
+    background: #E8F0FB;
+    border-color: {PRIMARY};
+    border-left: 3px solid {PRIMARY};
+}}
+QLabel#certCardTitle {{
+    font-size: 13px;
+    font-weight: 600;
+    color: {FOREGROUND};
+    background: transparent;
+}}
+QLabel#certCardMeta {{
+    font-size: 11px;
+    color: {MUTED_FG};
+    background: transparent;
+}}
+QLineEdit#pinInput {{
+    border: 1px solid {BORDER};
+    border-radius: 6px;
+    padding: 6px 10px;
+    background: {SURFACE};
+    font-size: 13px;
+}}
+QLineEdit#pinInput:focus {{
+    border: 1.5px solid {PRIMARY};
+}}
+QPushButton#btnSecondary {{
+    background: {SURFACE};
+    border: 1px solid {BORDER};
+    border-radius: 6px;
+    padding: 6px 14px;
+    min-height: 28px;
+    color: {FOREGROUND};
+}}
+QPushButton#btnSecondary:hover {{
+    border-color: {PRIMARY};
+}}
 """
 
 

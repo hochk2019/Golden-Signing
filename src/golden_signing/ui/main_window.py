@@ -10,12 +10,10 @@ from PySide6.QtGui import QDragEnterEvent, QDropEvent
 from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
-    QDialogButtonBox,
     QFileDialog,
     QFrame,
     QHBoxLayout,
     QHeaderView,
-    QInputDialog,
     QLabel,
     QLineEdit,
     QMainWindow,
@@ -53,71 +51,9 @@ def _brand_mark_path() -> Path:
     return root / "assets" / "branding" / "golden-mark.png"
 
 
-class CertPickerDialog(QDialog):
-    """Compact cert chooser — short CN + expiry only."""
-
-    def __init__(self, certs: list, parent: QWidget | None = None) -> None:
-        super().__init__(parent)
-        from golden_signing.ui.theme import apply_window_icon
-
-        apply_window_icon(self)
-        self.setWindowTitle("Chọn chứng thư số")
-        self.setModal(True)
-        self.setMinimumWidth(420)
-        self.setMaximumWidth(480)
-        lay = QVBoxLayout(self)
-        lay.setContentsMargins(16, 16, 16, 12)
-        lay.setSpacing(10)
-
-        hint = QLabel("Chứng thư trên USB token:")
-        lay.addWidget(hint)
-        self._combo = QComboBox()
-        self._combo.setMinimumHeight(32)
-        for c in certs:
-            self._combo.addItem(_short_cert_label(c), userData=c)
-        lay.addWidget(self._combo)
-
-        self._detail = QLabel()
-        self._detail.setObjectName("productSub")
-        self._detail.setWordWrap(True)
-        self._detail.setTextFormat(Qt.TextFormat.PlainText)
-        lay.addWidget(self._detail)
-        self._combo.currentIndexChanged.connect(self._on_index_changed)
-        if certs:
-            self._on_index_changed(0)
-
-        buttons = QDialogButtonBox(
-            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
-        )
-        buttons.button(QDialogButtonBox.StandardButton.Ok).setText("Chọn")
-        buttons.button(QDialogButtonBox.StandardButton.Cancel).setText("Hủy")
-        buttons.accepted.connect(self.accept)
-        buttons.rejected.connect(self.reject)
-        lay.addWidget(buttons)
-
-    def _on_index_changed(self, index: int) -> None:
-        c = self._combo.itemData(index)
-        if c is None:
-            self._detail.setText("")
-            return
-        from golden_signing.ui.cert_label import cert_detail_lines
-
-        self._detail.setText(cert_detail_lines(c))
-
-    def selected_cert(self):  # noqa: ANN201
-        return self._combo.currentData()
-
-
 def _ellipsis(text: str, n: int) -> str:
     t = " ".join(str(text).split())
     return t if len(t) <= n else t[: n - 1] + "…"
-
-
-def _short_cert_label(cert) -> str:  # noqa: ANN001
-    """Short display: company CN · token · expiry (YYYY-MM-DD)."""
-    from golden_signing.ui.cert_label import short_cert_label
-
-    return short_cert_label(cert)
 
 
 class MainWindow(QMainWindow):
@@ -872,8 +808,17 @@ class MainWindow(QMainWindow):
         self.statusBar().showMessage("Đã quét lại token", 3000)
 
     def _ensure_token_engine(self) -> TokenPdfSigner | None:
+        from golden_signing.ui.cert_label import common_name_from_subject
+        from golden_signing.ui.token_dialogs import CertPickerDialog, PinDialog
+
         dlls = discover_pkcs11_libraries()
         if not dlls:
+            QMessageBox.warning(
+                self,
+                "Token",
+                "Không tìm thấy thư viện PKCS#11 / USB token.\n"
+                "Cắm token và thử lại, hoặc dùng Quét lại token.",
+            )
             return None
         dll = dlls[0]
         try:
@@ -890,13 +835,12 @@ class MainWindow(QMainWindow):
         chosen = dlg.selected_cert()
         if chosen is None:
             return None
-        pin, ok = QInputDialog.getText(
-            self,
-            "PIN chữ ký số",
-            "PIN (không lưu):",
-            QLineEdit.EchoMode.Password,
-        )
-        if not ok or not pin:
+        company = common_name_from_subject(getattr(chosen, "subject", "") or "")
+        pin_dlg = PinDialog(company=company, parent=self)
+        if pin_dlg.exec() != QDialog.DialogCode.Accepted:
+            return None
+        pin = pin_dlg.pin()
+        if not pin:
             return None
         try:
             session, asn1_cert = TokenPdfSigner.open_session_with_pin(
@@ -1054,26 +998,10 @@ class MainWindow(QMainWindow):
 
         engine = self._token_signer
         if engine is None:
-            use_token = QMessageBox.question(
-                self,
-                "Chọn phương thức ký",
-                "Thử ký bằng USB token (khuyến nghị)?\n"
-                "Chọn No để dùng lab certificate (chỉ test).",
-                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                QMessageBox.StandardButton.Yes,
-            )
-            if use_token == QMessageBox.StandardButton.Yes:
-                engine = self._ensure_token_engine()
-                if engine is None:
-                    return
-            else:
-                if self._lab_signer is None:
-                    self._lab_signer = TestCertPdfSigner()
-                engine = self._lab_signer
-                self._profile_label.setText("Profile: PUS Safe · lab (test cert)")
-                fp = getattr(engine, "certificate_fingerprint_sha256", "") or ""
-                if fp and self._active_fingerprint != fp:
-                    self._load_cert_profile(fp, company="Golden Sign Lab")
+            # Always go token → cert picker → PIN (no method chooser popup).
+            engine = self._ensure_token_engine()
+            if engine is None:
+                return
 
         profile = self._make_profile(engine)
         self._apply_engine_appearance(engine)
