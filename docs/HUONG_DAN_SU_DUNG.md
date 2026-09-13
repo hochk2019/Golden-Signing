@@ -8,17 +8,28 @@
 
 ## 1. Cài đặt
 
-1. Tải `GoldenSign-1.0.0-win64.zip` từ [GitHub Releases](https://github.com/hochk2019/Golden-Signing/releases).
+### Cách 1 — Installer (khuyến nghị)
+
+1. Tải **`GoldenSign-Setup-1.0.0.exe`** từ [GitHub Releases](https://github.com/hochk2019/Golden-Signing/releases).
+2. **Double-click** file Setup → làm theo wizard (tiếng Anh; không cần quyền admin).
+3. Mặc định cài vào `%LOCALAPPDATA%\Programs\GoldenSign`.
+4. Tạo shortcut **Desktop** và **Start Menu** (luôn có Desktop icon).
+5. Mở **Golden Sign** từ Desktop.
+
+### Cách 2 — Portable
+
+1. Tải `GoldenSign-1.0.0-win64.zip`.
 2. Giải nén ra thư mục bất kỳ.
-3. Chạy **`Cai-dat.bat`** (hoặc chuột phải `install.ps1` → *Run with PowerShell*).
-4. Mở **Start Menu → Golden Sign**.
+3. Chạy **`GoldenSign.exe`** (chạy ngay, không cài), hoặc **`Cai-dat.bat`** nếu muốn cài vào máy.
 
-**Vị trí cài:** `%LOCALAPPDATA%\Programs\GoldenSign` (không cần quyền admin).
+### Gỡ cài đặt
 
-**Gỡ cài đặt:** *Settings → Apps → Golden Sign → Uninstall*, hoặc chạy `uninstall.ps1`.
+*Settings → Apps → Golden Sign → Uninstall* (chuẩn Windows).
 
 **Dữ liệu người dùng** (lịch sử ký, hồ sơ chứng thư, log):  
 `%LOCALAPPDATA%\GoldenSign` — gỡ app **không** xóa thư mục này.
+
+**Checksums:** đối chiếu SHA256 với `checksums.txt` trong Release nếu cần.
 
 ---
 
@@ -86,8 +97,9 @@ Kiểm tra tay: **Giới thiệu → Kiểm tra cập nhật**.
 
 Release cần kèm:
 
-- `GoldenSign-<ver>-win64.zip`
-- `checksums.txt` (`<sha256>  GoldenSign-<ver>-win64.zip`)
+- `GoldenSign-Setup-<ver>.exe` (installer — cài mới)
+- `GoldenSign-<ver>-win64.zip` (portable + **asset mà updater tải**)
+- `checksums.txt` (`<sha256>  <tên file>` cho từng file)
 
 ---
 
@@ -125,7 +137,19 @@ Release cần kèm:
 
 ## 11. Phát triển / build
 
-Xem `README.md` và `packaging/build_release.ps1`.
+Xem `README.md`.
+
+```
+packaging\build_release.ps1
+```
+
+Output trong `dist\release\`:
+
+- `GoldenSign-Setup-<ver>.exe` — Inno Setup installer  
+- `GoldenSign-<ver>-win64.zip` — portable  
+- `checksums.txt`  
+
+Yêu cầu build: Python 3.13 + venv dự án, PyInstaller, Inno Setup 6 (`ISCC.exe`).
 
 Developer: **HOC HK** — hochk2019@gmail.com — 0868.333.606  
 Sản phẩm của **Golden Logistics**.

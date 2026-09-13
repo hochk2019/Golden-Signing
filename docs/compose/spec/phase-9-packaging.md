@@ -3,18 +3,20 @@ feature: phase-9-packaging
 status: delivered
 updated: 2026-09-11
 branch: main
-commits: 2f453f6..HEAD
+commits: 2f453f6..d4af29e
 ---
 
 # Phase 9 — Packaging v1.0.0
 
 ## Report
 
-**What was built** — Version **1.0.0** (`__version__`, pyproject, README, smoke test). PyInstaller onedir `GoldenSign.exe` with bundled branding assets; `resource_root()` works frozen or from source. Per-user installer: `install.ps1` / `Cai-dat.bat` → `%LOCALAPPDATA%\Programs\GoldenSign` + Start Menu + HKCU Uninstall key; `uninstall.ps1`. Release zip `GoldenSign-1.0.0-win64.zip` + `checksums.txt`. User guide `docs/HUONG_DAN_SU_DUNG.md` + SVG illustrations.
+**What was built** — Version **1.0.0**. Slim PyInstaller onedir (`~116 MB`; drop unused Qt DLLs; **must keep asyncio** for pyHanko). Two release artifacts: **Inno Setup** `GoldenSign-Setup-1.0.0.exe` (~39 MB, double-click install, always Desktop shortcut, per-user `%LOCALAPPDATA%\Programs\GoldenSign`) and portable zip (~53 MB). `resource_root()` works frozen/source. User guide + SVG.
 
-**Update vs install** — Updater replaces the **install directory** (parent of `GoldenSign.exe`) after SHA256 verify; per-user path needs no admin. Uninstaller remains in the same folder (shipped in zip, refreshed by update). Data stays in `%LOCALAPPDATA%\GoldenSign` after uninstall.
+**Update vs install** — Updater replaces install dir (parent of `GoldenSign.exe`) after SHA256; zip asset is what updater downloads. Data stays in `%LOCALAPPDATA%\GoldenSign` after uninstall.
 
-**Verification** — full pytest exit 0; PyInstaller build SUCCESS; zip 76MB + checksums written.
+**Verification** — pytest exit 0; ISCC compile SUCCESS; smoke `GoldenSign.exe` offscreen 6s RUNNING after asyncio fix; user confirmed sign + verify OK after install.
+
+**Journey log** — Excluding `asyncio` broke pyHanko at launch; never exclude stdlib modules pyHanko pulls without running the frozen EXE.
 
 ## Tasks
 

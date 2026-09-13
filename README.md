@@ -10,11 +10,16 @@ PDF digital signature utility for Windows. Ký số PDF nhanh, ổn định, ưu
 
 ## Cài đặt
 
-1. Tải `GoldenSign-1.0.0-win64.zip` từ [Releases](https://github.com/hochk2019/Golden-Signing/releases).
-2. Giải nén → chạy `install.ps1` (chuột phải → Run with PowerShell), hoặc copy thư mục vào `%LOCALAPPDATA%\Programs\GoldenSign`.
-3. Mở **Golden Sign** từ Start Menu.
+**Khuyến nghị (1 file):**
 
-Gỡ cài đặt: Settings → Apps → Golden Sign → Uninstall, hoặc chạy `uninstall.ps1`.
+1. Tải **`GoldenSign-Setup-1.0.0.exe`** từ [Releases](https://github.com/hochk2019/Golden-Signing/releases).
+2. Double-click → làm theo wizard (không cần admin).
+3. Cài vào `%LOCALAPPDATA%\Programs\GoldenSign`; tạo **Desktop** + Start Menu.
+4. Mở **Golden Sign** từ Desktop.
+
+**Portable (không cài):** tải `GoldenSign-1.0.0-win64.zip` → giải nén → chạy `GoldenSign.exe` (hoặc `Cai-dat.bat` để cài).
+
+**Gỡ cài đặt:** *Settings → Apps → Golden Sign → Uninstall*.
 
 ## Cập nhật
 
@@ -33,6 +38,8 @@ uv run golden-signing
 ```
 packaging\build_release.ps1
 ```
+
+Sinh `dist\release\`: Setup.exe + portable zip + `checksums.txt` (cần Inno Setup 6).
 
 ## Layout
 
