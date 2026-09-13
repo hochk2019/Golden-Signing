@@ -1,8 +1,10 @@
-# Hướng dẫn sử dụng Golden Sign 1.0.0
+# Hướng dẫn sử dụng Golden Sign 1.1.0
 
 Ứng dụng ký số PDF trên Windows (USB token / chữ ký số doanh nghiệp), ưu tiên quy trình **Hải quan (PUS)**.
 
 > **Miễn trừ:** Ứng dụng phi lợi nhuận, không nhằm mục đích thương mại. Người dùng tự chịu trách nhiệm khi sử dụng để ký số file PDF. Liên hệ tư vấn thủ tục hải quan miễn phí — HOC HK (hochk2019@gmail.com · 0868.333.606).
+
+**Mới trong 1.1.0:** Word/Excel → PDF · Nén PDF (Lossless / Balanced / PUS Safe 400KB) · **CHỈ NÉN** · hiện dung lượng trước/sau nén.
 
 ---
 
@@ -10,7 +12,7 @@
 
 ### Cách 1 — Installer (khuyến nghị)
 
-1. Tải **`GoldenSign-Setup-1.0.0.exe`** từ [GitHub Releases](https://github.com/hochk2019/Golden-Signing/releases).
+1. Tải **`GoldenSign-Setup-1.1.0.exe`** từ [GitHub Releases](https://github.com/hochk2019/Golden-Signing/releases).
 2. **Double-click** file Setup → làm theo wizard (tiếng Anh; không cần quyền admin).
 3. Mặc định cài vào `%LOCALAPPDATA%\Programs\GoldenSign`.
 4. Tạo shortcut **Desktop** và **Start Menu** (luôn có Desktop icon).
@@ -18,7 +20,7 @@
 
 ### Cách 2 — Portable
 
-1. Tải `GoldenSign-1.0.0-win64.zip`.
+1. Tải `GoldenSign-1.1.0-win64.zip`.
 2. Giải nén ra thư mục bất kỳ.
 3. Chạy **`GoldenSign.exe`** (chạy ngay, không cài), hoặc **`Cai-dat.bat`** nếu muốn cài vào máy.
 
@@ -38,10 +40,13 @@
 | Khu vực | Ý nghĩa |
 |---|---|
 | Thanh trái | Logo, tên app, điều hướng: Xác minh PDF · Hồ sơ ký · Lịch sử ký · Cài đặt · Giới thiệu |
-| Kéo thả / Thêm PDF | Nạp file cần ký (hỗ trợ kéo-thả) |
-| Bảng file | Tên file · Trạng thái · Hành động (Mở file / Mở thư mục / Xóa) |
+| Kéo thả / Thêm PDF | Nạp **PDF, Word, Excel** (kéo-thả hoặc nút Thêm) |
+| Bảng file | Tên · **Dung lượng** (hiện `gốc → sau nén`) · Trạng thái · Hành động |
 | Thư mục output | Trống → thư mục `signed` cạnh file nguồn |
-| **KÝ SỐ** | Bắt đầu ký toàn bộ danh sách |
+| **KÝ SỐ** | Ký toàn bộ danh sách (không nén) |
+| **CHỈ NÉN** | Chỉ nén, không ký — file ra `*_compressed.pdf` |
+| **NÉN VÀ KÝ SỐ** | Nén theo *Cài đặt nén* rồi ký |
+| **Cài đặt nén** | Profile: Lossless / Balanced / PUS Safe 400KB / Custom |
 
 ![Giao diện chính — minh họa](../assets/docs/main-window.svg)
 
@@ -59,6 +64,38 @@
 Ký lại: *Ký lại lỗi*. Xem chi tiết lỗi: cột Hành động → *Chi tiết*.
 
 ![Chọn chứng thư & PIN](../assets/docs/cert-pin.svg)
+
+---
+
+## 3b. Word / Excel → PDF (1.1.0)
+
+1. Kéo-thả hoặc *Thêm PDF* với filter **DOC/DOCX/XLS/XLSX**.
+2. Khi ký (hoặc *Nén và ký số* / *CHỈ NÉN*), app **tự chuyển sang PDF** bằng Microsoft Office (nếu có trên máy), rồi mới xử lý tiếp.
+3. **Không** thay đổi file Word/Excel gốc.
+4. Nếu máy không có Office/LibreOffice → job báo `CONVERSION_FAILED` rõ ràng.
+
+---
+
+## 3c. Nén PDF (1.1.0)
+
+| Nút | Việc làm |
+|---|---|
+| **CHỈ NÉN** | Nén (sau convert nếu là Office) → `tên_compressed.pdf`, **không ký** |
+| **NÉN VÀ KÝ SỐ** | Nén **trước** khi ký → file `_signed.pdf` cuối |
+
+**Cài đặt nén** (*Thao tác → Cài đặt nén*):
+
+| Profile | Ghi chú |
+|---|---|
+| Lossless | Không giảm chất lượng ảnh |
+| Balanced | Giảm ảnh lớn, JPEG ~80 |
+| **PUS Safe 400KB** | Mục tiêu ~400KB (trừ dự phòng chữ ký) |
+| Custom | Tự đặt target / JPEG / DPI |
+
+- Cột **Dung lượng** hiện `gốc → sau nén` sau khi chạy.
+- File **đã có chữ ký** sẽ **không bị nén** (tránh hỏng chữ ký).
+- Nếu file đã nhỏ hơn mục tiêu → bỏ qua nén, giữ nguyên.
+- Cài đặt được **ghi nhớ** khi tắt/mở app.
 
 ---
 
