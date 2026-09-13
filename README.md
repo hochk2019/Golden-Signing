@@ -4,9 +4,8 @@ PDF digital signature utility for Windows. Ký số PDF nhanh, ổn định, ưu
 
 - **Tên hiển thị:** Golden Sign  
 - **Phiên bản:** 1.0.0  
-- **Developer:** HOC HK — hochk2019@gmail.com — 0868.333.606  
-- **Repo:** https://github.com/hochk2019/Golden-Signing  
-- Spec gốc: `Golden Signing v1.2.0.md`  
+- **Developer:** HOC HK — hochk2019@gmail.com
+- **Repo:** https://github.com/hochk2019/Golden-Signing   
 - Hướng dẫn: `docs/HUONG_DAN_SU_DUNG.md`
 
 ## Cài đặt
