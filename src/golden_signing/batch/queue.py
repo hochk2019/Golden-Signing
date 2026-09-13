@@ -44,6 +44,7 @@ class BatchEngine:
         on_progress: ProgressCallback | None = None,
         compress: bool = False,
         compression_profile: object | None = None,
+        compress_only: bool = False,
     ) -> None:
         self._engine = engine
         self._profile = profile
@@ -52,6 +53,7 @@ class BatchEngine:
         self._on_progress = on_progress
         self._compress = compress
         self._compression_profile = compression_profile
+        self._compress_only = compress_only
         self._lock = threading.RLock()
         self._paused = False
         self._cancel_queued = False
@@ -119,8 +121,9 @@ class BatchEngine:
                 self._engine,
                 self._profile,
                 output_dir=self._output_dir,
-                compress=self._compress,
+                compress=self._compress or self._compress_only,
                 compression_profile=self._compression_profile,
+                compress_only=self._compress_only,
             )
             done += 1
             if self._on_progress is not None:

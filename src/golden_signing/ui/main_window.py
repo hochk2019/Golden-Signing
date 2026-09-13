@@ -88,6 +88,8 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(central)
         self._update_summary()
         self._sign_btn.setEnabled(False)
+        self._compress_sign_btn.setEnabled(False)
+        self._compress_only_btn.setEnabled(False)
         self._token_note.setText("Đang quét USB token…")
         from PySide6.QtCore import QTimer
 
@@ -200,7 +202,7 @@ class MainWindow(QMainWindow):
             tbl_header.setSectionResizeMode(2, QHeaderView.ResizeMode.Fixed)
             tbl_header.setSectionResizeMode(3, QHeaderView.ResizeMode.Fixed)
             tbl_header.setStretchLastSection(False)
-        self._table.setColumnWidth(1, 80)
+        self._table.setColumnWidth(1, 120)
         self._table.setColumnWidth(2, 120)
         self._table.setColumnWidth(3, 292)
         self._table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
@@ -296,6 +298,12 @@ class MainWindow(QMainWindow):
         self._sign_btn.setFixedHeight(40)
         self._sign_btn.clicked.connect(lambda: self._on_sign(compress=False))
         footer.addWidget(self._sign_btn)
+        self._compress_only_btn = QPushButton("CHỈ NÉN")
+        self._compress_only_btn.setObjectName("btnSecondary")
+        self._compress_only_btn.setFixedHeight(40)
+        self._compress_only_btn.setToolTip("Chỉ nén PDF/Office→PDF, không ký số")
+        self._compress_only_btn.clicked.connect(self._on_compress_only)
+        footer.addWidget(self._compress_only_btn)
         self._compress_sign_btn = QPushButton("NÉN VÀ KÝ SỐ")
         self._compress_sign_btn.setObjectName("primaryCta")
         self._compress_sign_btn.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -478,14 +486,16 @@ class MainWindow(QMainWindow):
         self._batch_paused = False
         batch.enqueue_jobs(jobs)
         self._sign_btn.setEnabled(False)
+        self._compress_sign_btn.setEnabled(False)
+        self._compress_only_btn.setEnabled(False)
         try:
             result = batch.run()
         except Exception as exc:  # noqa: BLE001
-            QMessageBox.critical(self, "Golden Sign", f"Lỗi khi ký:\n{exc}")
-            self._sign_btn.setEnabled(True)
+            QMessageBox.critical(self, "Golden Sign", f"Lỗi khi xử lý:\n{exc}")
+            self._update_summary()
             return
         finally:
-            self._sign_btn.setEnabled(True)
+            self._update_summary()
 
         self._model.replace_jobs(list(batch.jobs))
         self._reload_table()
@@ -945,9 +955,21 @@ class MainWindow(QMainWindow):
                 sz = job.input_path.stat().st_size
             except OSError:
                 sz = 0
-            size_text = (
-                f"{sz / (1024 * 1024):.1f} MB" if sz >= 1024 * 1024 else f"{sz // 1024} KB"
-            )
+            src_sz = job.source_size or sz
+            parts = []
+            if src_sz >= 1024 * 1024:
+                parts.append(f"{src_sz / (1024 * 1024):.1f} MB")
+            else:
+                parts.append(f"{max(src_sz, 0) // 1024} KB")
+            if job.compressed_size is not None and job.compressed_size > 0:
+                cs = job.compressed_size
+                cs_t = (
+                    f"{cs / (1024 * 1024):.1f} MB"
+                    if cs >= 1024 * 1024
+                    else f"{cs // 1024} KB"
+                )
+                parts.append(cs_t)
+            size_text = " → ".join(parts)
             self._table.setItem(row, 1, QTableWidgetItem(size_text))
             status = QTableWidgetItem(job.state.value)
             if job.message:
@@ -1024,7 +1046,32 @@ class MainWindow(QMainWindow):
     def _update_summary(self) -> None:
         total, ok, err = self._model.summary()
         self._summary.setText(f"{total} file · {ok} thành công · {err} lỗi")
-        self._sign_btn.setEnabled(total > 0)
+        enable = total > 0
+        self._sign_btn.setEnabled(enable)
+        self._compress_sign_btn.setEnabled(enable)
+        self._compress_only_btn.setEnabled(enable)
+
+    def _on_compress_only(self) -> None:
+        jobs = [j for j in self._model.jobs() if not j.is_terminal]
+        if not jobs:
+            QMessageBox.information(self, "Golden Sign", "Không có file chờ xử lý.")
+            return
+        from golden_signing.signing.pdf_signer import TestCertPdfSigner
+
+        # Dummy engine — compress_only path never calls sign()
+        engine = self._lab_signer or TestCertPdfSigner()
+        self._lab_signer = engine
+        profile = self._make_profile(engine)
+        out_dir = self._resolve_output_dir(jobs)
+        batch = BatchEngine(
+            engine,
+            profile,
+            output_dir=out_dir,
+            on_progress=self._on_batch_progress,
+            compress_only=True,
+            compression_profile=self._load_compression_profile(),
+        )
+        self._run_batch(batch, jobs)
 
     def _on_add_files(self) -> None:
         files, _ = QFileDialog.getOpenFileNames(

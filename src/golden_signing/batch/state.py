@@ -74,6 +74,7 @@ class SigningJob:
     compress: bool = False
     source_size: int | None = None
     final_size: int | None = None
+    compressed_size: int | None = None
 
     @property
     def is_terminal(self) -> bool:

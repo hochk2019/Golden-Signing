@@ -65,6 +65,12 @@ def _workspace_dir() -> Path:
     return d
 
 
+def _fmt_size(n: int) -> str:
+    if n >= 1024 * 1024:
+        return f"{n / (1024 * 1024):.1f} MB"
+    return f"{max(n, 0) // 1024} KB"
+
+
 def process_one_job(
     job: SigningJob,
     engine: LabSigner,
@@ -73,6 +79,7 @@ def process_one_job(
     output_dir: Path,
     compress: bool = False,
     compression_profile: object | None = None,
+    compress_only: bool = False,
 ) -> SigningJob:
     """Mutate job in place. Never raises for job errors."""
     if job.state is JobState.CANCELLED or job.state is JobState.SKIPPED:
@@ -128,7 +135,7 @@ def process_one_job(
     if pre.warnings:
         job.message = "; ".join(pre.warnings)
 
-    if compress:
+    if compress or compress_only:
         job.state = JobState.COMPRESSING
         ws = job.working_pdf.parent if job.working_pdf else _workspace_dir()
         cmp_path = ws / f"{job.id}_c.pdf"
@@ -141,12 +148,34 @@ def process_one_job(
                 job.working_pdf = sign_input
             sign_input = cmp_path
             job.state = JobState.COMPRESSED
+            job.compressed_size = cresult.after_bytes
+            job.message = (
+                f"{_fmt_size(cresult.before_bytes)} → {_fmt_size(cresult.after_bytes)}"
+                f" · {cresult.profile_name}"
+            )
             if cresult.note:
-                job.message = cresult.note
+                job.message = f"{job.message} · {cresult.note}"
         except Exception as exc:  # noqa: BLE001
             job.state = JobState.COMPRESSION_FAILED
             job.error_code = getattr(exc, "code", "COMPRESSION_FAILED")
             job.message = redact(str(exc))
+            return job
+
+        if compress_only:
+            out = output_dir / f"{job.input_path.stem}_compressed.pdf"
+            try:
+                import shutil
+
+                output_dir.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(sign_input, out)
+                job.output_path = out
+                job.final_size = out.stat().st_size
+                job.state = JobState.SUCCESS
+                job.error_code = None
+            except OSError as exc:
+                job.state = JobState.IO_ERROR
+                job.error_code = "IO_ERROR"
+                job.message = redact(str(exc))
             return job
 
     job.state = JobState.READY
