@@ -61,10 +61,9 @@ _EXCLUDES = [
     "PySide6.QtXml",
     "PySide6.QtXmlPatterns",
     # Python stdlib / third-party not needed
-    "asyncio",
+    # NOTE: do NOT exclude asyncio/email — pyHanko (pdf/content) imports them.
     "pydoc",
     "pydoc_data",
-    "email",
     "http.server",
     "xmlrpc",
     "setuptools",
