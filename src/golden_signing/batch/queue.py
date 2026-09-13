@@ -42,12 +42,16 @@ class BatchEngine:
         output_dir: Path,
         max_attempts: int = DEFAULT_MAX_ATTEMPTS,
         on_progress: ProgressCallback | None = None,
+        compress: bool = False,
+        compression_profile: object | None = None,
     ) -> None:
         self._engine = engine
         self._profile = profile
         self._output_dir = Path(output_dir)
         self._max_attempts = max(1, max_attempts)
         self._on_progress = on_progress
+        self._compress = compress
+        self._compression_profile = compression_profile
         self._lock = threading.RLock()
         self._paused = False
         self._cancel_queued = False
@@ -110,7 +114,14 @@ class BatchEngine:
             if self._should_stop_before_next():
                 # leave remaining non-terminal for later resume
                 break
-            process_one_job(job, self._engine, self._profile, output_dir=self._output_dir)
+            process_one_job(
+                job,
+                self._engine,
+                self._profile,
+                output_dir=self._output_dir,
+                compress=self._compress,
+                compression_profile=self._compression_profile,
+            )
             done += 1
             if self._on_progress is not None:
                 self._on_progress(done, total, job)

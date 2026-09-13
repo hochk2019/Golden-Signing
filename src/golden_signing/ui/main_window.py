@@ -164,10 +164,14 @@ class MainWindow(QMainWindow):
         header.setObjectName("productTitle")
         lay.addWidget(header)
 
-        drop = QLabel("Kéo thả PDF vào đây")
+        drop = QLabel("Kéo thả PDF, Word hoặc Excel vào đây")
         drop.setObjectName("dropHint")
         drop.setAlignment(Qt.AlignmentFlag.AlignCenter)
         lay.addWidget(drop)
+        subdrop = QLabel("PDF • DOC • DOCX • XLS • XLSX")
+        subdrop.setObjectName("productSub")
+        subdrop.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        lay.addWidget(subdrop)
 
         actions = QHBoxLayout()
         self._add_btn = QPushButton("Thêm PDF")
@@ -185,16 +189,20 @@ class MainWindow(QMainWindow):
         actions.addWidget(self._profile_label)
         lay.addLayout(actions)
 
-        self._table = QTableWidget(0, 3)
-        self._table.setHorizontalHeaderLabels(["Tên file", "Trạng thái", "Hành động"])
+        self._table = QTableWidget(0, 4)
+        self._table.setHorizontalHeaderLabels(
+            ["Tên file", "Dung lượng", "Trạng thái", "Hành động"]
+        )
         tbl_header = self._table.horizontalHeader()
         if tbl_header is not None:
             tbl_header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
             tbl_header.setSectionResizeMode(1, QHeaderView.ResizeMode.Fixed)
             tbl_header.setSectionResizeMode(2, QHeaderView.ResizeMode.Fixed)
+            tbl_header.setSectionResizeMode(3, QHeaderView.ResizeMode.Fixed)
             tbl_header.setStretchLastSection(False)
-        self._table.setColumnWidth(1, 96)
-        self._table.setColumnWidth(2, 236)
+        self._table.setColumnWidth(1, 80)
+        self._table.setColumnWidth(2, 120)
+        self._table.setColumnWidth(3, 292)
         self._table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self._table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self._table.setWordWrap(False)
@@ -265,6 +273,9 @@ class MainWindow(QMainWindow):
         )
         self._sign_settings_btn.clicked.connect(self._on_open_sign_settings)
         mode_row.addWidget(self._sign_settings_btn)
+        self._compress_settings_btn = QPushButton("Cài đặt nén")
+        self._compress_settings_btn.clicked.connect(self._on_compression_settings)
+        mode_row.addWidget(self._compress_settings_btn)
         self._retry_btn = QPushButton("Ký lại lỗi")
         self._retry_btn.clicked.connect(self._on_retry_failed)
         mode_row.addWidget(self._retry_btn)
@@ -282,8 +293,12 @@ class MainWindow(QMainWindow):
         self._sign_btn = QPushButton("KÝ SỐ")
         self._sign_btn.setObjectName("primaryCta")
         self._sign_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._sign_btn.clicked.connect(self._on_sign)
+        self._sign_btn.clicked.connect(lambda: self._on_sign(compress=False))
         footer.addWidget(self._sign_btn)
+        self._compress_sign_btn = QPushButton("NÉN VÀ KÝ SỐ")
+        self._compress_sign_btn.setToolTip("Nén PDF (theo Cài đặt nén) rồi ký số")
+        self._compress_sign_btn.clicked.connect(lambda: self._on_sign(compress=True))
+        footer.addWidget(self._compress_sign_btn)
         lay.addLayout(footer)
         return ws
 
@@ -902,9 +917,11 @@ class MainWindow(QMainWindow):
 
     def add_paths(self, paths: list[Path]) -> None:
         files: list[Path] = []
+        exts = {".pdf", ".doc", ".docx", ".xls", ".xlsx"}
         for p in paths:
             if p.is_dir():
-                files.extend(sorted(p.glob("*.pdf")))
+                for e in exts:
+                    files.extend(sorted(p.glob(f"*{e}")))
             elif p.is_file():
                 files.append(p)
         before = self._model.rowCount()
@@ -920,15 +937,22 @@ class MainWindow(QMainWindow):
         for row, job in enumerate(jobs):
             name_item = QTableWidgetItem(job.input_path.name)
             self._table.setItem(row, 0, name_item)
+            try:
+                sz = job.input_path.stat().st_size
+            except OSError:
+                sz = 0
+            size_text = (
+                f"{sz / (1024 * 1024):.1f} MB" if sz >= 1024 * 1024 else f"{sz // 1024} KB"
+            )
+            self._table.setItem(row, 1, QTableWidgetItem(size_text))
             status = QTableWidgetItem(job.state.value)
             if job.message:
                 status.setToolTip(f"{job.state.value}: {job.message}")
-            self._table.setItem(row, 1, status)
-            self._table.setCellWidget(row, 2, self._make_action_widget(job))
+            self._table.setItem(row, 2, status)
+            self._table.setCellWidget(row, 3, self._make_action_widget(job))
             if job.error_code or job.message:
                 has_detail = True
-        # 3×88 + gaps; widen when "Chi tiết" is present.
-        self._table.setColumnWidth(2, 384 if has_detail else 292)
+        self._table.setColumnWidth(3, 384 if has_detail else 292)
 
     def _make_action_widget(self, job) -> QWidget:  # noqa: ANN001
         from PySide6.QtCore import Qt
@@ -999,7 +1023,12 @@ class MainWindow(QMainWindow):
         self._sign_btn.setEnabled(total > 0)
 
     def _on_add_files(self) -> None:
-        files, _ = QFileDialog.getOpenFileNames(self, "Chọn PDF", "", "PDF (*.pdf)")
+        files, _ = QFileDialog.getOpenFileNames(
+            self,
+            "Chọn file",
+            "",
+            "Tài liệu (*.pdf *.doc *.docx *.xls *.xlsx);;PDF (*.pdf)",
+        )
         self.add_paths([Path(f) for f in files])
 
     def _on_add_folder(self) -> None:
@@ -1009,7 +1038,35 @@ class MainWindow(QMainWindow):
 
     # --- sign ---------------------------------------------------------
 
-    def _on_sign(self) -> None:
+    def _load_compression_profile(self):
+        import json
+
+        from golden_signing.compress.engine import CompressionProfile, default_profile
+
+        raw = str(self._settings.value("compressionProfile", "") or "")
+        if not raw:
+            return default_profile()
+        try:
+            data = json.loads(raw)
+            return CompressionProfile(**data)
+        except Exception:  # noqa: BLE001
+            return default_profile()
+
+    def _on_compression_settings(self) -> None:
+        import json
+
+        from golden_signing.ui.compression_dialog import CompressionSettingsDialog
+
+        dlg = CompressionSettingsDialog(self._load_compression_profile(), self)
+        if dlg.exec() != QDialog.DialogCode.Accepted:
+            return
+        prof = dlg.profile()
+        from dataclasses import asdict
+
+        self._settings.setValue("compressionProfile", json.dumps(asdict(prof)))
+        self.statusBar().showMessage(f"Đã lưu cài đặt nén: {prof.name}", 3000)
+
+    def _on_sign(self, *, compress: bool = False) -> None:
         jobs = [j for j in self._model.jobs() if not j.is_terminal]
         if not jobs:
             QMessageBox.information(self, "Golden Sign", "Không có file chờ ký.")
@@ -1017,7 +1074,6 @@ class MainWindow(QMainWindow):
 
         engine = self._token_signer
         if engine is None:
-            # Always go token → cert picker → PIN (no method chooser popup).
             engine = self._ensure_token_engine()
             if engine is None:
                 return
@@ -1031,6 +1087,8 @@ class MainWindow(QMainWindow):
             profile,
             output_dir=out_dir,
             on_progress=self._on_batch_progress,
+            compress=compress,
+            compression_profile=self._load_compression_profile() if compress else None,
         )
         self._run_batch(batch, jobs)
 

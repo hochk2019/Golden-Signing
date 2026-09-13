@@ -1,0 +1,321 @@
+"""PDF compression tiers (v1.1) — compress BEFORE sign only."""
+
+from __future__ import annotations
+
+import io
+import json
+from dataclasses import asdict, dataclass
+from enum import StrEnum
+from pathlib import Path
+
+from golden_signing.security.integrity import atomic_write_bytes
+
+__all__ = [
+    "CompressionError",
+    "CompressionProfile",
+    "CompressionResult",
+    "CompressionTier",
+    "compress_pdf",
+    "default_profile",
+    "has_signature",
+    "load_profiles_path",
+]
+
+
+class CompressionError(RuntimeError):
+    def __init__(self, message: str, *, code: str = "COMPRESSION_FAILED") -> None:
+        super().__init__(message)
+        self.code = code
+
+
+class CompressionTier(StrEnum):
+    LOSSLESS = "lossless"
+    BALANCED = "balanced"
+    PUS_SAFE = "pus_safe"
+    CUSTOM = "custom"
+
+
+@dataclass
+class CompressionProfile:
+    name: str = "PUS Safe 400KB"
+    tier: str = CompressionTier.PUS_SAFE
+    target_bytes: int | None = 400 * 1024
+    signature_reserve_bytes: int = 32 * 1024
+    jpeg_quality: int = 70
+    max_dpi: int = 150
+    downsample: bool = True
+    strip_metadata: bool = True
+
+    def effective_target(self) -> int | None:
+        if self.target_bytes is None:
+            return None
+        return max(1024, self.target_bytes - self.signature_reserve_bytes)
+
+
+@dataclass(frozen=True, slots=True)
+class CompressionResult:
+    source: Path
+    output: Path
+    before_bytes: int
+    after_bytes: int
+    skipped: bool
+    note: str = ""
+    profile_name: str = ""
+
+    @property
+    def saved_bytes(self) -> int:
+        return max(0, self.before_bytes - self.after_bytes)
+
+
+def default_profile(tier: CompressionTier = CompressionTier.PUS_SAFE) -> CompressionProfile:
+    if tier is CompressionTier.LOSSLESS:
+        return CompressionProfile(
+            name="Lossless",
+            tier=tier.value,
+            target_bytes=None,
+            downsample=False,
+            strip_metadata=True,
+        )
+    if tier is CompressionTier.BALANCED:
+        return CompressionProfile(
+            name="Balanced",
+            tier=tier.value,
+            target_bytes=None,
+            jpeg_quality=80,
+            max_dpi=150,
+            downsample=True,
+        )
+    if tier is CompressionTier.CUSTOM:
+        return CompressionProfile(name="Custom", tier=tier.value)
+    return CompressionProfile()
+
+
+def load_profiles_path() -> Path:
+    from golden_signing.storage.app_paths import data_dir
+
+    return data_dir() / "compression_profiles.json"
+
+
+def has_signature(path: Path) -> bool:
+    try:
+        import pikepdf
+
+        with pikepdf.open(path) as pdf:
+            root = pdf.Root
+            acro = root.get("/AcroForm")
+            if acro is None:
+                return False
+            fields = acro.get("/Fields")
+            if fields is None:
+                return False
+            for f in fields:
+                ft = f.get("/FT")
+                if ft is not None and str(ft) == "/Sig":
+                    return True
+                # kids (signature fields often nested)
+                kids = f.get("/Kids")
+                if kids is not None:
+                    for k in kids:
+                        if str(k.get("/FT") or "") == "/Sig":
+                            return True
+    except Exception:  # noqa: BLE001
+        return False
+    return False
+
+
+def _estimate_dpi(pil_w: int, pil_h: int, pdf_w_pt: float, pdf_h_pt: float) -> float:
+    # Image placed roughly full-page: DPI ≈ pixels / inches; 72pt = 1 inch
+    inches_w = max(pdf_w_pt, 1.0) / 72.0
+    inches_h = max(pdf_h_pt, 1.0) / 72.0
+    return max(pil_w / inches_w, pil_h / inches_h)
+
+
+def _strip_metadata(pdf: object) -> None:
+    import contextlib
+
+    try:
+        root = pdf.Root  # type: ignore[attr-defined]
+        if "/Metadata" in root:
+            del root["/Metadata"]
+        with pdf.open_metadata() as meta:  # type: ignore[attr-defined]
+            for key in list(meta.keys()):
+                with contextlib.suppress(Exception):
+                    del meta[key]
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def _lossless_save(pdf, dest: Path) -> None:  # noqa: ANN001
+    buf = io.BytesIO()
+    pdf.save(
+        buf,
+        compress_streams=True,
+        object_stream_mode=__import__("pikepdf").ObjectStreamMode.generate,
+    )
+    atomic_write_bytes(dest, buf.getvalue())
+
+
+def _downsample_images(pdf, quality: int, max_dpi: int) -> bool:  # noqa: ANN001
+    import pikepdf
+    from PIL import Image as PILImage
+
+    changed = False
+    for page in pdf.pages:
+        res = page.get("/Resources")
+        if res is None:
+            continue
+        xobj = res.get("/XObject")
+        if xobj is None:
+            continue
+        try:
+            w_pt = float(page.MediaBox[2]) - float(page.MediaBox[0])
+            h_pt = float(page.MediaBox[3]) - float(page.MediaBox[1])
+        except Exception:  # noqa: BLE001
+            w_pt, h_pt = 595.0, 842.0
+        for key in list(xobj.keys()):
+            obj = xobj[key]
+            try:
+                if str(obj.get("/Subtype") or "") != "/Image":
+                    continue
+                pim = pikepdf.PdfImage(obj)
+                pil = pim.as_pil_image().convert("RGB")
+            except Exception:  # noqa: BLE001
+                continue
+            dpi = _estimate_dpi(pil.width, pil.height, w_pt, h_pt)
+            if (
+                dpi <= max_dpi * 1.05
+                and pim.bits_per_component == 8
+                and str(obj.get("/Filter") or "") == "/DCTDecode"
+            ):
+                continue
+            scale = min(1.0, max_dpi / max(dpi, 1.0))
+            if scale < 1.0:
+                nw = max(1, int(pil.width * scale))
+                nh = max(1, int(pil.height * scale))
+                pil = pil.resize((nw, nh), PILImage.Resampling.LANCZOS)
+            buf = io.BytesIO()
+            pil.save(buf, "JPEG", quality=quality, optimize=True)
+            new = pikepdf.Stream(pdf, buf.getvalue())
+            new.stream_dict = pikepdf.Dictionary(
+                Type=pikepdf.Name.XObject,
+                Subtype=pikepdf.Name.Image,
+                Width=pil.width,
+                Height=pil.height,
+                ColorSpace=pikepdf.Name.DeviceRGB,
+                BitsPerComponent=8,
+                Filter=pikepdf.Name.DCTDecode,
+            )
+            xobj[key] = new
+            changed = True
+    return changed
+
+
+def compress_pdf(
+    source: Path,
+    output: Path,
+    profile: CompressionProfile | None = None,
+    *,
+    allow_signed: bool = False,
+) -> CompressionResult:
+    """Compress PDF to output. Raises CompressionError if signed and not allowed."""
+    import pikepdf
+
+    profile = profile or default_profile()
+    source = Path(source)
+    output = Path(output)
+    if not source.is_file():
+        raise CompressionError(f"Không tìm thấy file: {source}", code="IO_ERROR")
+    if has_signature(source) and not allow_signed:
+        raise CompressionError(
+            "File đã có chữ ký số — không nén để tránh làm mất hiệu lực chữ ký.",
+            code="SIGNED_PDF",
+        )
+
+    before = source.stat().st_size
+    target = profile.effective_target()
+    if target is not None and before <= target:
+        # Skip: already small enough — copy atomically
+        atomic_write_bytes(output, source.read_bytes())
+        return CompressionResult(
+            source=source,
+            output=output,
+            before_bytes=before,
+            after_bytes=before,
+            skipped=True,
+            note="File đã dưới mục tiêu — bỏ qua nén.",
+            profile_name=profile.name,
+        )
+
+    with pikepdf.open(source) as pdf:
+        if profile.strip_metadata:
+            _strip_metadata(pdf)
+        # Always lossless pass first
+        tmp = output.with_suffix(".lossless.pdf")
+        _lossless_save(pdf, tmp)
+        best = tmp
+        best_size = tmp.stat().st_size
+
+        need_images = profile.downsample and (
+            target is None or best_size > target
+        )
+        if need_images and profile.tier != CompressionTier.LOSSLESS:
+            with pikepdf.open(best) as pdf2:
+                if _downsample_images(pdf2, profile.jpeg_quality, profile.max_dpi):
+                    if profile.strip_metadata:
+                        _strip_metadata(pdf2)
+                    tmp2 = output.with_suffix(".img.pdf")
+                    _lossless_save(pdf2, tmp2)
+                    if tmp2.stat().st_size < best_size:
+                        if best.exists():
+                            best.unlink(missing_ok=True)
+                        best, best_size = tmp2, tmp2.stat().st_size
+                    else:
+                        tmp2.unlink(missing_ok=True)
+
+        # Second stronger pass if still over target (PUS_SAFE / CUSTOM)
+        if target is not None and best_size > target and profile.downsample:
+            stronger_q = max(40, profile.jpeg_quality - 15)
+            stronger_dpi = max(96, int(profile.max_dpi * 0.75))
+            with pikepdf.open(best) as pdf3:
+                if _downsample_images(pdf3, stronger_q, stronger_dpi):
+                    tmp3 = output.with_suffix(".strong.pdf")
+                    _lossless_save(pdf3, tmp3)
+                    if tmp3.stat().st_size < best_size:
+                        if best.exists():
+                            best.unlink(missing_ok=True)
+                        best, best_size = tmp3, tmp3.stat().st_size
+                    else:
+                        tmp3.unlink(missing_ok=True)
+
+        data = best.read_bytes()
+        best.unlink(missing_ok=True)
+        atomic_write_bytes(output, data)
+        after = output.stat().st_size
+
+    note = ""
+    if target is not None and after > target:
+        note = f"Đã tối ưu tới {after // 1024} KB (mục tiêu {target // 1024} KB)."
+    return CompressionResult(
+        source=source,
+        output=output,
+        before_bytes=before,
+        after_bytes=after,
+        skipped=False,
+        note=note,
+        profile_name=profile.name,
+    )
+
+
+def save_profile(profile: CompressionProfile, path: Path | None = None) -> Path:
+    path = path or load_profiles_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    existing: list[dict] = []
+    if path.is_file():
+        try:
+            existing = json.loads(path.read_text(encoding="utf-8"))
+        except Exception:  # noqa: BLE001
+            existing = []
+    existing = [p for p in existing if p.get("name") != profile.name]
+    existing.append(asdict(profile))
+    path.write_text(json.dumps(existing, ensure_ascii=False, indent=2), encoding="utf-8")
+    return path

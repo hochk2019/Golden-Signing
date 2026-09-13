@@ -11,7 +11,8 @@ from golden_signing.batch.state import JobState, SigningJob
 
 __all__ = ["FileJobTableModel"]
 
-_HEADERS = ("Tên file", "Trạng thái", "Hành động")
+_HEADERS = ("Tên file", "Dung lượng", "Trạng thái", "Hành động")
+_OFFICE = {".doc", ".docx", ".xls", ".xlsx"}
 
 
 class FileJobTableModel(QAbstractTableModel):
@@ -40,12 +41,17 @@ class FileJobTableModel(QAbstractTableModel):
             if index.column() == 0:
                 return job.input_path.name
             if index.column() == 1:
-                state = job.state.value
-                if job.error_code and job.message:
-                    return f"{state}"
-                return state
+                try:
+                    sz = job.source_size or job.input_path.stat().st_size
+                except OSError:
+                    sz = 0
+                if sz >= 1024 * 1024:
+                    return f"{sz / (1024 * 1024):.1f} MB"
+                return f"{max(sz, 0) // 1024} KB"
+            if index.column() == 2:
+                return job.state.value
             return ""
-        if role == Qt.ItemDataRole.ToolTipRole and index.column() == 1:
+        if role == Qt.ItemDataRole.ToolTipRole and index.column() == 2:
             if job.message:
                 return f"{job.state.value}: {job.message}"
             return job.state.value
@@ -72,7 +78,8 @@ class FileJobTableModel(QAbstractTableModel):
             rp = Path(p).resolve()
             if rp in existing or not rp.is_file():
                 continue
-            if rp.suffix.lower() != ".pdf":
+            ext = rp.suffix.lower()
+            if ext != ".pdf" and ext not in _OFFICE:
                 continue
             new_jobs.append(SigningJob(input_path=rp))
             existing.add(rp)

@@ -18,6 +18,14 @@ class JobState(StrEnum):
     VERIFYING = "VERIFYING"
     COMMITTED = "COMMITTED"
     SUCCESS = "SUCCESS"
+    # v1.1 conversion / compression
+    CONVERTING = "CONVERTING"
+    CONVERTED = "CONVERTED"
+    COMPRESSING = "COMPRESSING"
+    COMPRESSED = "COMPRESSED"
+    CONVERSION_FAILED = "CONVERSION_FAILED"
+    COMPRESSION_FAILED = "COMPRESSION_FAILED"
+    # existing failures
     PREFLIGHT_FAILED = "PREFLIGHT_FAILED"
     TOKEN_ERROR = "TOKEN_ERROR"
     PIN_CANCELLED = "PIN_CANCELLED"
@@ -43,6 +51,8 @@ TERMINAL_STATES: frozenset[JobState] = frozenset(
         JobState.VERIFY_FAILED,
         JobState.OUTPUT_CONFLICT,
         JobState.IO_ERROR,
+        JobState.CONVERSION_FAILED,
+        JobState.COMPRESSION_FAILED,
     }
 )
 
@@ -58,6 +68,12 @@ class SigningJob:
     message: str = ""
     attempts: int = 0
     id: str = field(default_factory=lambda: str(uuid4()))
+    # v1.1
+    document_type: str = ""
+    working_pdf: Path | None = None
+    compress: bool = False
+    source_size: int | None = None
+    final_size: int | None = None
 
     @property
     def is_terminal(self) -> bool:

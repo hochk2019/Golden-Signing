@@ -78,7 +78,7 @@ def test_action_buttons_equal_width(qapp: QApplication, tmp_path: Path) -> None:
     pdf.write_bytes(SOURCE_PDF.read_bytes())
     win = MainWindow()
     win.add_paths([pdf])
-    wrap = win._table.cellWidget(0, 2)
+    wrap = win._table.cellWidget(0, 3)
     assert wrap is not None
     buttons = wrap.findChildren(QPushButton)
     assert len(buttons) == 3

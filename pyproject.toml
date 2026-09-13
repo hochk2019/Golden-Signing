@@ -11,6 +11,8 @@ dependencies = [
     "pypdfium2>=4.30.0",
     "cryptography>=43.0.0",
     "structlog>=24.0.0",
+    "pikepdf>=9.0.0",
+    "pywin32>=306; sys_platform == 'win32'",
 ]
 
 [project.optional-dependencies]
