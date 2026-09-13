@@ -292,23 +292,28 @@ class MainWindow(QMainWindow):
         self._summary = QLabel("0 file")
         footer.addWidget(self._summary)
         footer.addStretch(1)
-        self._sign_btn = QPushButton("KÝ SỐ")
-        self._sign_btn.setObjectName("primaryCta")
-        self._sign_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._sign_btn.setFixedHeight(40)
+
+        def _cta(text: str, tip: str) -> QPushButton:
+            b = QPushButton(text)
+            b.setObjectName("primaryCta")
+            b.setCursor(Qt.CursorShape.PointingHandCursor)
+            b.setFixedHeight(40)
+            b.setMinimumWidth(110)
+            if tip:
+                b.setToolTip(tip)
+            return b
+
+        self._sign_btn = _cta("KÝ SỐ", "")
         self._sign_btn.clicked.connect(lambda: self._on_sign(compress=False))
         footer.addWidget(self._sign_btn)
-        self._compress_only_btn = QPushButton("CHỈ NÉN")
-        self._compress_only_btn.setObjectName("btnSecondary")
-        self._compress_only_btn.setFixedHeight(40)
-        self._compress_only_btn.setToolTip("Chỉ nén PDF/Office→PDF, không ký số")
+        self._compress_only_btn = _cta(
+            "CHỈ NÉN", "Chỉ nén PDF/Office→PDF, không ký số"
+        )
         self._compress_only_btn.clicked.connect(self._on_compress_only)
         footer.addWidget(self._compress_only_btn)
-        self._compress_sign_btn = QPushButton("NÉN VÀ KÝ SỐ")
-        self._compress_sign_btn.setObjectName("primaryCta")
-        self._compress_sign_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._compress_sign_btn.setFixedHeight(40)
-        self._compress_sign_btn.setToolTip("Nén PDF (theo Cài đặt nén) rồi ký số")
+        self._compress_sign_btn = _cta(
+            "NÉN VÀ KÝ SỐ", "Nén PDF (theo Cài đặt nén) rồi ký số"
+        )
         self._compress_sign_btn.clicked.connect(lambda: self._on_sign(compress=True))
         footer.addWidget(self._compress_sign_btn)
         lay.addLayout(footer)
