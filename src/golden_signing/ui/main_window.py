@@ -100,6 +100,7 @@ class MainWindow(QMainWindow):
         else:
             self._token_note.setText("Tự quét token đã tắt (Cài đặt).")
         self._load_app_defaults()
+        self._sync_output_dir_from_settings()
         self._update_thread = None
         if str(self._settings.value("autoCheckUpdate", "1")) not in ("0", "false", "False"):
             QTimer.singleShot(1800, self._auto_check_update)
@@ -613,6 +614,11 @@ class MainWindow(QMainWindow):
         if folder:
             self._out_edit.setText(folder)
 
+    def _sync_output_dir_from_settings(self) -> None:
+        """Show persisted defaultOutputDir in the main output field."""
+        default_dir = str(self._settings.value("defaultOutputDir", "") or "")
+        self._out_edit.setText(default_dir)
+
     def _resolve_output_dir(self, jobs: list) -> Path:
         text = self._out_edit.text().strip()
         if text:
@@ -714,9 +720,26 @@ class MainWindow(QMainWindow):
         HistoryDialog(self._history, self).exec()
 
     def _nav_settings(self) -> None:
+        was_scan = str(self._settings.value("autoScanToken", "1")) not in (
+            "0",
+            "false",
+            "False",
+        )
         dlg = SettingsDialog(self._settings, self)
-        dlg.exec()
+        if dlg.exec() != QDialog.DialogCode.Accepted:
+            return
         self._load_app_defaults()
+        self._sync_output_dir_from_settings()
+        now_scan = str(self._settings.value("autoScanToken", "1")) not in (
+            "0",
+            "false",
+            "False",
+        )
+        if now_scan and not was_scan:
+            self._refresh_token_label()
+        elif not now_scan and was_scan:
+            self._token_note.setText("Tự quét token đã tắt (Cài đặt).")
+        self.statusBar().showMessage("Đã lưu cài đặt", 2500)
 
     def _nav_about(self) -> None:
         from golden_signing import __version__

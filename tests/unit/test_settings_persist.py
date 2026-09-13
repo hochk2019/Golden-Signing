@@ -58,3 +58,43 @@ def test_no_logo_path_forces_logo_off(tmp_path: Path) -> None:
     win._load_app_defaults()  # noqa: SLF001
     assert win._logo_check.isChecked() is False  # noqa: SLF001
     win.close()
+
+
+def test_default_output_dir_syncs_into_main_field(tmp_path: Path) -> None:
+    QApplication.instance() or QApplication([])
+    settings = _isolated(tmp_path / "gs3.ini")
+    out = tmp_path / "signed-out"
+    out.mkdir()
+    settings.setValue("defaultOutputDir", str(out))
+    win = MainWindow()
+    win._settings = settings  # noqa: SLF001
+    win._sync_output_dir_from_settings()  # noqa: SLF001
+    assert win._out_edit.text() == str(out)  # noqa: SLF001
+    # resolve uses the visible field first
+    win._out_edit.setText("")  # noqa: SLF001
+    assert win._resolve_output_dir([]) == out  # noqa: SLF001
+    win.close()
+
+
+def test_settings_save_applies_signature_defaults(tmp_path: Path) -> None:
+    from golden_signing.ui.settings_dialog import SettingsDialog
+
+    app = QApplication.instance() or QApplication([])
+    settings = _isolated(tmp_path / "gs4.ini")
+    win = MainWindow()
+    win._settings = settings  # noqa: SLF001
+
+    dlg = SettingsDialog(settings, win)
+    dlg._mode.setCurrentIndex(1)  # invisible  # noqa: SLF001
+    dlg._bg.setChecked(False)  # noqa: SLF001
+    dlg._out_edit.setText(str(tmp_path / "o"))  # noqa: SLF001
+    dlg._save()  # noqa: SLF001
+    assert dlg.result() == 1
+
+    win._load_app_defaults()  # noqa: SLF001
+    win._sync_output_dir_from_settings()  # noqa: SLF001
+    assert win._mode_combo.currentData() == "invisible"  # noqa: SLF001
+    assert win._bg_check.isChecked() is False  # noqa: SLF001
+    assert win._out_edit.text() == str(tmp_path / "o")  # noqa: SLF001
+    win.close()
+    app.processEvents()
