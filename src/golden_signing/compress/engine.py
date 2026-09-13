@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import io
 import json
+import shutil
 from dataclasses import asdict, dataclass
 from enum import StrEnum
 from pathlib import Path
@@ -146,13 +147,142 @@ def _strip_metadata(pdf: object) -> None:
 
 
 def _lossless_save(pdf, dest: Path) -> None:  # noqa: ANN001
+    import pikepdf
+
     buf = io.BytesIO()
     pdf.save(
         buf,
         compress_streams=True,
-        object_stream_mode=__import__("pikepdf").ObjectStreamMode.generate,
+        object_stream_mode=pikepdf.ObjectStreamMode.generate,
     )
-    atomic_write_bytes(dest, buf.getvalue())
+    # Direct write (new path) — avoid atomic replace while handles may exist
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    dest.write_bytes(buf.getvalue())
+
+
+def _run_downsample_pass(
+    src: Path,
+    dest: Path,
+    *,
+    quality: int,
+    max_dpi: int,
+    strip_meta: bool,
+) -> bool:
+    """Open src, downsample images, write dest. True if dest written."""
+    import pikepdf
+
+    if not src.is_file():
+        return False
+    with pikepdf.open(src) as pdf:
+        changed = _downsample_images(pdf, quality, max_dpi)
+        if not changed:
+            return False
+        if strip_meta:
+            _strip_metadata(pdf)
+        _lossless_save(pdf, dest)
+    return dest.is_file()
+
+
+def compress_pdf(
+    source: Path,
+    output: Path,
+    profile: CompressionProfile | None = None,
+    *,
+    allow_signed: bool = False,
+) -> CompressionResult:
+    """Compress PDF to output. Never deletes a file that is still open."""
+    import tempfile
+    import uuid
+
+    import pikepdf
+
+    profile = profile or default_profile()
+    source = Path(source)
+    output = Path(output)
+    if not source.is_file():
+        raise CompressionError(f"Không tìm thấy file: {source}", code="IO_ERROR")
+    if has_signature(source) and not allow_signed:
+        raise CompressionError(
+            "File đã có chữ ký số — không nén để tránh làm mất hiệu lực chữ ký.",
+            code="SIGNED_PDF",
+        )
+
+    before = source.stat().st_size
+    target = profile.effective_target()
+    if target is not None and before <= target:
+        atomic_write_bytes(output, source.read_bytes())
+        return CompressionResult(
+            source=source,
+            output=output,
+            before_bytes=before,
+            after_bytes=before,
+            skipped=True,
+            note="File đã dưới mục tiêu — bỏ qua nén.",
+            profile_name=profile.name,
+        )
+
+    work = Path(tempfile.mkdtemp(prefix="gs-cmp-"))
+    token = uuid.uuid4().hex[:8]
+    best = work / f"{token}_lossless.pdf"
+    try:
+        with pikepdf.open(source) as pdf:
+            if profile.strip_metadata:
+                _strip_metadata(pdf)
+            _lossless_save(pdf, best)
+        best_size = best.stat().st_size
+
+        if (
+            profile.downsample
+            and profile.tier != CompressionTier.LOSSLESS
+            and (target is None or best_size > target)
+        ):
+            cand = work / f"{token}_img.pdf"
+            if _run_downsample_pass(
+                best,
+                cand,
+                quality=profile.jpeg_quality,
+                max_dpi=profile.max_dpi,
+                strip_meta=profile.strip_metadata,
+            ) and cand.stat().st_size < best_size:
+                best, best_size = cand, cand.stat().st_size
+
+        if target is not None and best_size > target and profile.downsample:
+            cand = work / f"{token}_strong.pdf"
+            if _run_downsample_pass(
+                best,
+                cand,
+                quality=max(40, profile.jpeg_quality - 15),
+                max_dpi=max(96, int(profile.max_dpi * 0.75)),
+                strip_meta=profile.strip_metadata,
+            ) and cand.stat().st_size < best_size:
+                best, best_size = cand, cand.stat().st_size
+
+        # Never ship a "compressed" file larger than the original
+        if best_size >= before:
+            atomic_write_bytes(output, source.read_bytes())
+            after = before
+            note_keep = True
+        else:
+            atomic_write_bytes(output, best.read_bytes())
+            after = output.stat().st_size
+            note_keep = False
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
+
+    note = ""
+    if note_keep:
+        note = "Nén không nhỏ hơn gốc — giữ nguyên file."
+    elif target is not None and after > target:
+        note = f"Đã tối ưu tới {after // 1024} KB (mục tiêu {target // 1024} KB)."
+    return CompressionResult(
+        source=source,
+        output=output,
+        before_bytes=before,
+        after_bytes=after,
+        skipped=note_keep,
+        note=note,
+        profile_name=profile.name,
+    )
 
 
 def _downsample_images(pdf, quality: int, max_dpi: int) -> bool:  # noqa: ANN001
@@ -208,102 +338,6 @@ def _downsample_images(pdf, quality: int, max_dpi: int) -> bool:  # noqa: ANN001
             xobj[key] = new
             changed = True
     return changed
-
-
-def compress_pdf(
-    source: Path,
-    output: Path,
-    profile: CompressionProfile | None = None,
-    *,
-    allow_signed: bool = False,
-) -> CompressionResult:
-    """Compress PDF to output. Raises CompressionError if signed and not allowed."""
-    import pikepdf
-
-    profile = profile or default_profile()
-    source = Path(source)
-    output = Path(output)
-    if not source.is_file():
-        raise CompressionError(f"Không tìm thấy file: {source}", code="IO_ERROR")
-    if has_signature(source) and not allow_signed:
-        raise CompressionError(
-            "File đã có chữ ký số — không nén để tránh làm mất hiệu lực chữ ký.",
-            code="SIGNED_PDF",
-        )
-
-    before = source.stat().st_size
-    target = profile.effective_target()
-    if target is not None and before <= target:
-        # Skip: already small enough — copy atomically
-        atomic_write_bytes(output, source.read_bytes())
-        return CompressionResult(
-            source=source,
-            output=output,
-            before_bytes=before,
-            after_bytes=before,
-            skipped=True,
-            note="File đã dưới mục tiêu — bỏ qua nén.",
-            profile_name=profile.name,
-        )
-
-    with pikepdf.open(source) as pdf:
-        if profile.strip_metadata:
-            _strip_metadata(pdf)
-        # Always lossless pass first
-        tmp = output.with_suffix(".lossless.pdf")
-        _lossless_save(pdf, tmp)
-        best = tmp
-        best_size = tmp.stat().st_size
-
-        need_images = profile.downsample and (
-            target is None or best_size > target
-        )
-        if need_images and profile.tier != CompressionTier.LOSSLESS:
-            with pikepdf.open(best) as pdf2:
-                if _downsample_images(pdf2, profile.jpeg_quality, profile.max_dpi):
-                    if profile.strip_metadata:
-                        _strip_metadata(pdf2)
-                    tmp2 = output.with_suffix(".img.pdf")
-                    _lossless_save(pdf2, tmp2)
-                    if tmp2.stat().st_size < best_size:
-                        if best.exists():
-                            best.unlink(missing_ok=True)
-                        best, best_size = tmp2, tmp2.stat().st_size
-                    else:
-                        tmp2.unlink(missing_ok=True)
-
-        # Second stronger pass if still over target (PUS_SAFE / CUSTOM)
-        if target is not None and best_size > target and profile.downsample:
-            stronger_q = max(40, profile.jpeg_quality - 15)
-            stronger_dpi = max(96, int(profile.max_dpi * 0.75))
-            with pikepdf.open(best) as pdf3:
-                if _downsample_images(pdf3, stronger_q, stronger_dpi):
-                    tmp3 = output.with_suffix(".strong.pdf")
-                    _lossless_save(pdf3, tmp3)
-                    if tmp3.stat().st_size < best_size:
-                        if best.exists():
-                            best.unlink(missing_ok=True)
-                        best, best_size = tmp3, tmp3.stat().st_size
-                    else:
-                        tmp3.unlink(missing_ok=True)
-
-        data = best.read_bytes()
-        best.unlink(missing_ok=True)
-        atomic_write_bytes(output, data)
-        after = output.stat().st_size
-
-    note = ""
-    if target is not None and after > target:
-        note = f"Đã tối ưu tới {after // 1024} KB (mục tiêu {target // 1024} KB)."
-    return CompressionResult(
-        source=source,
-        output=output,
-        before_bytes=before,
-        after_bytes=after,
-        skipped=False,
-        note=note,
-        profile_name=profile.name,
-    )
 
 
 def save_profile(profile: CompressionProfile, path: Path | None = None) -> Path:
