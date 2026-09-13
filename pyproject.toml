@@ -1,7 +1,7 @@
 [project]
 name = "golden-signing"
-version = "0.1.0a0"
-description = "Golden Signing - PDF digital signature utility for Windows"
+version = "1.0.0"
+description = "Golden Sign - PDF digital signature utility for Windows"
 readme = "README.md"
 requires-python = ">=3.13"
 license = { text = "Proprietary" }

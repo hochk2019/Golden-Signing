@@ -226,9 +226,9 @@ QPushButton#btnSecondary:hover {{
 
 
 def _check_icon_url() -> str:
-    here = Path(__file__).resolve()
-    root = here.parents[3]
-    icon = root / "assets" / "ui" / "check.svg"
+    from golden_signing.storage.app_paths import resource_root
+
+    icon = resource_root() / "assets" / "ui" / "check.svg"
     if icon.is_file():
         # Qt QSS prefers plain path with forward slashes (no file://)
         return icon.as_posix()

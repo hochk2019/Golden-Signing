@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 680 420" font-family="Segoe UI, sans-serif">
+  <rect width="680" height="420" fill="#F8FAFC"/>
+  <rect x="12" y="12" width="140" height="396" rx="8" fill="#FFFFFF" stroke="#CBD5E1"/>
+  <circle cx="40" cy="40" r="16" fill="#FDBE00"/>
+  <text x="28" y="78" fill="#1E3A5F" font-size="13" font-weight="600">Golden Sign</text>
+  <text x="28" y="96" fill="#475569" font-size="10">Ký số PDF</text>
+  <text x="28" y="110" fill="#475569" font-size="9">Designer: Hoc HK</text>
+  <rect x="28" y="130" width="108" height="28" rx="6" fill="#FFFFFF" stroke="#CBD5E1"/>
+  <text x="40" y="148" font-size="10">Xác minh PDF</text>
+  <rect x="28" y="166" width="108" height="28" rx="6" fill="#FFFFFF" stroke="#CBD5E1"/>
+  <text x="44" y="184" font-size="10">Hồ sơ ký</text>
+  <rect x="28" y="202" width="108" height="28" rx="6" fill="#FFFFFF" stroke="#CBD5E1"/>
+  <text x="40" y="220" font-size="10">Lịch sử ký</text>
+  <rect x="28" y="238" width="108" height="28" rx="6" fill="#FFFFFF" stroke="#CBD5E1"/>
+  <text x="52" y="256" font-size="10">Cài đặt</text>
+  <rect x="28" y="274" width="108" height="28" rx="6" fill="#FFFFFF" stroke="#CBD5E1"/>
+  <text x="48" y="292" font-size="10">Giới thiệu</text>
+  <rect x="168" y="28" width="496" height="36" rx="8" fill="#FFFFFF" stroke="#CBD5E1" stroke-dasharray="4 3"/>
+  <text x="300" y="50" fill="#475569" font-size="12">Kéo thả PDF vào đây</text>
+  <rect x="168" y="78" width="88" height="28" rx="6" fill="#FFFFFF" stroke="#CBD5E1"/>
+  <text x="182" y="96" font-size="11">Thêm PDF</text>
+  <rect x="168" y="120" width="496" height="200" rx="8" fill="#FFFFFF" stroke="#CBD5E1"/>
+  <rect x="168" y="120" width="496" height="32" fill="#E9EEF5"/>
+  <text x="200" y="140" fill="#475569" font-size="11">Tên file</text>
+  <text x="420" y="140" fill="#475569" font-size="11">Trạng thái</text>
+  <text x="540" y="140" fill="#475569" font-size="11">Hành động</text>
+  <text x="200" y="176" font-size="11">hop-don.pdf</text>
+  <text x="420" y="176" fill="#16A34A" font-size="11">SUCCESS</text>
+  <text x="540" y="176" font-size="11">Mở file</text>
+  <rect x="168" y="340" width="200" height="28" rx="6" fill="#FFFFFF" stroke="#CBD5E1"/>
+  <text x="180" y="358" font-size="11">Cài đặt ký</text>
+  <rect x="560" y="340" width="100" height="36" rx="8" fill="#1E3A5F"/>
+  <text x="588" y="362" fill="#FFFFFF" font-size="12" font-weight="600">KÝ SỐ</text>
+</svg>

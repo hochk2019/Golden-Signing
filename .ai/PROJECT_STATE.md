@@ -31,14 +31,17 @@ Status legend: DONE | IN_PROGRESS | BLOCKED | TODO | DEFERRED
 | P7-04 | Diagnostic export / support bundle / health-check UI | DEFERRED | — | — | — | user: not needed | — |
 | P8-00 | Update via GitHub Releases (latest + SHA256 + rollback/stage) | DONE | — | `updater/`, UI | unit 13 | phase-8 spec | fill `update/repo` |
 | P10-00 | Branding: window icons, productSub bg, rename Golden Sign, About, AppData→GoldenSign | DONE | — | `app_paths.py`, theme, UI | unit + smoke | phase-10 spec | user GUI glance |
-| P9-00 | Packaging PyInstaller + code-sign | TODO | P8 | — | — | — | Phase 9 (user: later) |
+| P9-00 | Packaging v1.0.0: PyInstaller onedir + per-user install/uninstall + zip/checksums + guide | DONE | P8 | `packaging/`, `dist/release/` | pytest + build | phase-9 spec | attach zip to GitHub Release |
+| P9-01 | Authenticode code-sign | DEFERRED | P9 | — | — | no code-sign cert yet | optional |
 | — | PUS real upload | DONE | env | — | — | user confirmed 2026-09-11 | — |
 
 ## Verification evidence
 
-- `pytest -q` — **PASS** exit 0 (full suite + Phase 10)
+- `pytest -q` — **PASS** exit 0
+- PyInstaller onedir build SUCCESS — `dist/GoldenSign/GoldenSign.exe`
+- Release: `dist/release/GoldenSign-1.0.0-win64.zip` + `checksums.txt`
 - PUS upload: user confirmed success
 
 ## Status label
 
-`PHASE 2–8 + 10 (GOLDEN SIGN BRANDING) + PUS OK / PACKAGING (PHASE 9) LATER`
+`V1.0.0 PACKAGED · PHASES 2–10 + PUS OK / CODE-SIGN OPTIONAL`

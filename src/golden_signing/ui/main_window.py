@@ -42,13 +42,9 @@ __all__ = ["MainWindow"]
 
 
 def _brand_mark_path() -> Path:
-    here = Path(__file__).resolve()
-    root = here.parents[3]
-    # Prefer transparent-bg mark for white sidebar; fall back to original.
-    ui = root / "assets" / "branding" / "golden-mark-ui.png"
-    if ui.is_file():
-        return ui
-    return root / "assets" / "branding" / "golden-mark.png"
+    from golden_signing.storage.app_paths import brand_mark_path
+
+    return brand_mark_path()
 
 
 def _ellipsis(text: str, n: int) -> str:

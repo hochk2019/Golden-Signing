@@ -1,4 +1,4 @@
-"""Golden Signing — PDF digital signature utility."""
+"""Golden Sign — PDF digital signature utility."""
 
-__version__ = "0.1.0a0"
+__version__ = "1.0.0"
 __all__ = ["__version__"]

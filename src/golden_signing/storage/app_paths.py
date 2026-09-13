@@ -1,25 +1,44 @@
-"""Shared app data directory and window icon helpers."""
+"""Shared app data directory and resource path helpers."""
 
 from __future__ import annotations
 
 import shutil
+import sys
 from pathlib import Path
 
-__all__ = ["app_icon_path", "brand_mark_path", "data_dir", "ensure_data_dir"]
+__all__ = [
+    "app_icon_path",
+    "brand_mark_path",
+    "data_dir",
+    "ensure_data_dir",
+    "resource_root",
+]
 
 _OLD_DIR_NAME = "GoldenSigning"
 _NEW_DIR_NAME = "GoldenSign"
 
 
-def brand_mark_path() -> Path:
+def resource_root() -> Path:
+    """Repo root (source) or PyInstaller bundle dir (onedir)."""
+    if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
+        return Path(sys._MEIPASS)  # noqa: SLF001
+    if getattr(sys, "frozen", False):
+        return Path(sys.executable).resolve().parent
     here = Path(__file__).resolve()
-    root = here.parents[3]
+    return here.parents[3]
+
+
+def brand_mark_path() -> Path:
+    root = resource_root()
+    for name in ("golden-mark-ui.png", "golden-mark.png"):
+        p = root / "assets" / "branding" / name
+        if p.is_file():
+            return p
     return root / "assets" / "branding" / "golden-mark.png"
 
 
 def app_icon_path() -> Path:
-    here = Path(__file__).resolve()
-    root = here.parents[3]
+    root = resource_root()
     ico = root / "assets" / "branding" / "golden-app-icon.ico"
     if ico.is_file():
         return ico
