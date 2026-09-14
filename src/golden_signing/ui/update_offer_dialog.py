@@ -213,28 +213,36 @@ class UpdateOfferDialog(QDialog):
             self._status.setText(f"Đang tải… {_fmt_mb(done)}")
 
     def _on_staged(self, result: object) -> None:
-        from golden_signing.updater.apply import apply_staged_swap
-        from golden_signing.updater.runtime import is_frozen, relaunch_app
+        from golden_signing.updater.runtime import (
+            app_install_dir,
+            is_frozen,
+            launch_update_helper,
+            write_update_helper,
+        )
 
         extract_dir = getattr(result, "extract_dir", None)
         zip_path = getattr(result, "zip_path", None)
-        install_dir = app_install_dir_frozen()
+        install_dir = app_install_dir() if is_frozen() else None
 
         if is_frozen() and install_dir is not None and extract_dir is not None:
-            self._status.setText("Đang cài bản mới…")
+            # Cannot rename/replace install dir while this EXE is running
+            # (Windows locks loaded DLLs). Launch a detached helper that
+            # waits for exit, then swaps staged → install and relaunches.
+            update_root = Path(zip_path).parent if zip_path else install_dir.parent
+            self._status.setText("Đang chuẩn bị cập nhật — app sẽ đóng và mở lại…")
             self._progress.setRange(0, 0)
             try:
-                apply_staged_swap(
-                    staged_dir=Path(extract_dir),
-                    app_dir=install_dir,
-                    update_root=Path(zip_path).parent if zip_path else install_dir.parent,
+                helper = write_update_helper(
+                    update_root,
+                    install_dir,
+                    Path(extract_dir),
                 )
+                launch_update_helper(helper)
             except Exception as exc:  # noqa: BLE001
                 self._on_fail(str(exc))
                 return
             self._did_update = True
             self.accept()
-            relaunch_app()
             return
 
         folder = Path(zip_path).parent if zip_path else None
