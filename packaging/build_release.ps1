@@ -5,7 +5,7 @@ $ErrorActionPreference = "Stop"
 $Root = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
 Set-Location $Root
 $Py = Join-Path $Root ".venv\Scripts\python.exe"
-$Version = "1.1.1"
+$Version = "1.1.2"
 $ZipName = "GoldenSign-$Version-win64.zip"
 $SetupName = "GoldenSign-Setup-$Version.exe"
 

@@ -1,25 +1,20 @@
 # ADR-GSIGN-001 — Golden Sign application icon
 
-**Status:** Accepted · 2026-09-14  
-**Concept:** R1 One-stroke G-Sign  
-**Master:** `assets/branding/gsign/golden-signing.svg`
+**Status:** Accepted · 2026-09-14 (updated: user-supplied logo)  
+**Final asset:** `assets/branding/gsign/golden-signing.ico` (+ PNG 16–512)  
+**Source master:** `golden-signing-master.png` (1254×1254, user `G sign logo.png`)
 
 ## Why G-Sign
 
 Product needs a **Windows app symbol** distinct from the Golden Logistics diamond used **inside** the UI sidebar. Spec: *“G đang ký”* (G is signing), not *“G + signature”*.
 
-## Why this geometry (R1)
+## Final artwork
 
-- **One continuous gesture path:** G bowl → bar → exit flick = the act of signing in one breath.
-- **Second stroke** (deep gold): verification terminal integrated into the same motion language — not a UI ✓.
-- Asymmetric flick up-right gives **motion** and a unique silhouette vs PDF readers (Acrobat/Foxit) and generic check badges.
+User-supplied 3D gold one-stroke **G** on dark navy rounded plate.
 
-## Why color
+Pipeline: master PNG → LANCZOS → sizes 16–512 (unsharp ≤64px) → ICO 10 entries (16–256) from 512px.
 
-- Primary `#D99A22` — same golden family as logistics brand.
-- Deep `#A96F08` — verification terminal.
-- Highlight `#F4C15D` reserved for future premium/256+ variants.
-- No blue/red (avoids Acrobat/antivirus confusion).
+SVG exploration (`G_SIGN_CONCEPTS/`, `r1-one-stroke-master.svg`) kept as design reference only.
 
 ## Rejected alternatives
 

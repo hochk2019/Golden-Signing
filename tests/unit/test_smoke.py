@@ -17,7 +17,7 @@ from golden_signing.signing import (
 
 
 def test_version() -> None:
-    assert golden_signing.__version__ == "1.1.1"
+    assert golden_signing.__version__ == "1.1.2"
 
 
 def test_signing_job_terminal() -> None:

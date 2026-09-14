@@ -2,11 +2,11 @@
 
 Project: Golden Sign (display name; package `golden_signing`)
 Spec: 1.2.0 (file `Golden Signing v1.2.0.md`; do not edit spec file — track in revisions)
-Application version: **1.1.0**
-Current milestone: **v1.1.0 — Office→PDF + compression + release build**
+Application version: **1.1.2**
+Current milestone: **v1.1.2 — icon G-Sign + compress-then-sign fixes**
 Last verified commit: (see git log)
 Current blocker: none
-Next task: Upload `GoldenSign-Setup-1.1.0.exe` + zip + checksums to GitHub Release v1.1.0; user PUS test
+Next task: Build release 1.1.2; upload to GitHub Release; user PUS/update test
 Required skills: compose-next, verification-before-completion
 Last test result: `pytest` exit 0
 

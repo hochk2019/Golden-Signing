@@ -1,17 +1,59 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
-  <title>Golden Sign — G-Sign (one-stroke)</title>
-  <!-- One continuous gesture: G bowl + bar + signing flick -->
-  <path d="M720 250
-           C500 190 280 330 280 540
-           C280 760 500 870 680 810
-           C740 790 760 730 760 660
-           L580 660
-           L760 660
-           C840 660 880 560 890 400"
-        fill="none" stroke="#D99A22" stroke-width="108"
-        stroke-linecap="round" stroke-linejoin="round"/>
-  <!-- verification terminal -->
-  <path d="M820 500 L890 340 L950 460"
-        fill="none" stroke="#A96F08"
-        stroke-width="52" stroke-linecap="round" stroke-linejoin="round"/>
+  <title>Golden Sign — One-Stroke G (recreate)</title>
+  <defs>
+    <!-- metallic gold gradient matching ChatGPT reference -->
+    <linearGradient id="gold" x1="0.15" y1="0.05" x2="0.85" y2="0.95">
+      <stop offset="0%" stop-color="#F6D07A"/>
+      <stop offset="28%" stop-color="#E8B84A"/>
+      <stop offset="62%" stop-color="#D99A22"/>
+      <stop offset="100%" stop-color="#9A6208"/>
+    </linearGradient>
+    <linearGradient id="gold2" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0%" stop-color="#B87A10"/>
+      <stop offset="45%" stop-color="#E0A82E"/>
+      <stop offset="100%" stop-color="#F4C15D"/>
+    </linearGradient>
+    <clipPath id="round">
+      <rect x="48" y="48" width="928" height="928" rx="196" ry="196"/>
+    </clipPath>
+  </defs>
+
+  <!-- dark navy app-icon plate -->
+  <rect x="48" y="48" width="928" height="928" rx="196" ry="196" fill="#1B2836"/>
+  <rect x="48" y="48" width="928" height="928" rx="196" ry="196" fill="none" stroke="#0D1520" stroke-width="8"/>
+
+  <g clip-path="url(#round)">
+    <!-- G bowl: bold continuous arc, opening right -->
+    <path d="M690 250
+             C470 200 270 360 270 540
+             C270 740 470 860 680 820
+             C740 805 770 760 770 700"
+          fill="none" stroke="url(#gold)" stroke-width="118"
+          stroke-linecap="round" stroke-linejoin="round"/>
+
+    <!-- G bar (middle) -->
+    <path d="M560 700 L770 700" fill="none" stroke="url(#gold)"
+          stroke-width="100" stroke-linecap="round"/>
+
+    <!-- ONE-STROKE signature: enters from lower-left, cuts through G, wing flick up-right -->
+    <!-- main swoosh -->
+    <path d="M320 780
+             C480 820 640 760 760 620
+             C840 520 880 400 900 300"
+          fill="none" stroke="url(#gold2)" stroke-width="72"
+          stroke-linecap="round" stroke-linejoin="round"/>
+
+    <!-- wing / verification flare at terminal (tapered look via overlapping) -->
+    <path d="M700 560
+             C780 500 860 380 920 260
+             C900 360 860 480 780 560
+             C740 600 700 600 680 580
+             Z"
+          fill="url(#gold2)"/>
+
+    <!-- soft highlight on top of bowl (metallic) -->
+    <path d="M420 300 C500 250 600 240 680 260"
+          fill="none" stroke="#F8E7B0" stroke-width="18"
+          stroke-linecap="round" opacity="0.55"/>
+  </g>
 </svg>

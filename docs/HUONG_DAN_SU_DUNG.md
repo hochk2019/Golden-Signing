@@ -1,10 +1,10 @@
-# Hướng dẫn sử dụng Golden Sign 1.1.0
+# Hướng dẫn sử dụng Golden Sign 1.1.2
 
 Ứng dụng ký số PDF trên Windows (USB token / chữ ký số doanh nghiệp), ưu tiên quy trình **Hải quan (PUS)**.
 
 > **Miễn trừ:** Ứng dụng phi lợi nhuận, không nhằm mục đích thương mại. Người dùng tự chịu trách nhiệm khi sử dụng để ký số file PDF. Liên hệ tư vấn thủ tục hải quan miễn phí — HOC HK (hochk2019@gmail.com · 0868.333.606).
 
-**Mới trong 1.1.0:** Word/Excel → PDF · Nén PDF (Lossless / Balanced / PUS Safe 400KB) · **CHỈ NÉN** · hiện dung lượng trước/sau nén.
+**Mới trong 1.1.x:** Word/Excel → PDF · Nén PDF · **CHỈ NÉN** (trạng thái COMPRESSED, ký tiếp được) · dung lượng trước/sau nén · icon G-Sign · cài đặt nén được ghi nhớ.
 
 ---
 
@@ -12,7 +12,7 @@
 
 ### Cách 1 — Installer (khuyến nghị)
 
-1. Tải **`GoldenSign-Setup-1.1.0.exe`** từ [GitHub Releases](https://github.com/hochk2019/Golden-Signing/releases).
+1. Tải **`GoldenSign-Setup-1.1.2.exe`** từ [GitHub Releases](https://github.com/hochk2019/Golden-Signing/releases).
 2. **Double-click** file Setup → làm theo wizard (tiếng Anh; không cần quyền admin).
 3. Mặc định cài vào `%LOCALAPPDATA%\Programs\GoldenSign`.
 4. Tạo shortcut **Desktop** và **Start Menu** (luôn có Desktop icon).
@@ -20,7 +20,7 @@
 
 ### Cách 2 — Portable
 
-1. Tải `GoldenSign-1.1.0-win64.zip`.
+1. Tải `GoldenSign-1.1.2-win64.zip`.
 2. Giải nén ra thư mục bất kỳ.
 3. Chạy **`GoldenSign.exe`** (chạy ngay, không cài), hoặc **`Cai-dat.bat`** nếu muốn cài vào máy.
 
