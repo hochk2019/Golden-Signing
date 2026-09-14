@@ -112,20 +112,22 @@ if (Test-Path -LiteralPath $newExe) {{
 
 
 def launch_update_helper(script: Path) -> None:
-    """Start detached PowerShell so it survives this process exiting."""
+    """Start detached PowerShell so it survives this process exiting.
+
+    MUST use CREATE_NO_WINDOW (not DETACHED_PROCESS): DETACHED_PROCESS
+    makes powershell.exe exit immediately without running -File.
+    """
     script = Path(script)
     creationflags = 0
     if sys.platform.startswith("win"):
-        # DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP
-        creationflags = 0x00000008 | 0x00000200
+        # CREATE_NO_WINDOW — hidden, but PowerShell actually executes
+        creationflags = 0x08000000
     subprocess.Popen(  # noqa: S603
         [
-            "powershell",
+            "powershell.exe",
             "-NoProfile",
             "-ExecutionPolicy",
             "Bypass",
-            "-WindowStyle",
-            "Hidden",
             "-File",
             str(script),
         ],
