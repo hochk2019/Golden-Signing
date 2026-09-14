@@ -619,7 +619,8 @@ class MainWindow(QMainWindow):
         profile = self._make_profile(engine)
         out_dir = self._resolve_output_dir(jobs)
         batch = BatchEngine(
-            engine, profile, output_dir=out_dir, on_progress=self._on_batch_progress
+            engine, profile, output_dir=out_dir, on_progress=self._on_batch_progress,
+            on_job_state=self._on_job_state,
         )
         batch.enqueue_jobs(failed)
         self._run_batch(batch, failed)
@@ -1075,6 +1076,7 @@ class MainWindow(QMainWindow):
             on_progress=self._on_batch_progress,
             compress_only=True,
             compression_profile=self._load_compression_profile(),
+            on_job_state=self._on_job_state,
         )
         self._run_batch(batch, jobs)
 
@@ -1145,11 +1147,40 @@ class MainWindow(QMainWindow):
             on_progress=self._on_batch_progress,
             compress=compress,
             compression_profile=self._load_compression_profile() if compress else None,
+            on_job_state=self._on_job_state,
         )
         self._run_batch(batch, jobs)
 
+    def _on_job_state(self, job: object) -> None:
+        """Live step label while a file is converting/compressing/signing."""
+        try:
+            name = Path(job.input_path).name  # type: ignore[attr-defined]
+            state = str(job.state.value)  # type: ignore[attr-defined]
+        except Exception:  # noqa: BLE001
+            return
+        label = {
+            "CONVERTING": "đang chuyển PDF",
+            "COMPRESSING": "đang nén",
+            "SIGNING": "đang ký",
+            "VERIFYING": "đang xác minh",
+        }.get(state, state)
+        self._summary.setText(f"{name} · {label}")
+        from PySide6.QtWidgets import QApplication
+
+        QApplication.processEvents()
+
     def _on_batch_progress(self, done: int, total: int, job: object) -> None:
-        self._summary.setText(f"Đang ký {done}/{total}…")
+        name = ""
+        state = ""
+        try:
+            name = Path(job.input_path).name  # type: ignore[attr-defined]
+            state = str(job.state.value)  # type: ignore[attr-defined]
+        except Exception:  # noqa: BLE001
+            pass
+        if name:
+            self._summary.setText(f"Đang xử lý {done}/{total} · {name} · {state}")
+        else:
+            self._summary.setText(f"Đang xử lý {done}/{total}…")
         from PySide6.QtWidgets import QApplication
 
         QApplication.processEvents()

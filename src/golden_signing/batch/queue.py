@@ -45,6 +45,7 @@ class BatchEngine:
         compress: bool = False,
         compression_profile: object | None = None,
         compress_only: bool = False,
+        on_job_state: Callable[[SigningJob], None] | None = None,
     ) -> None:
         self._engine = engine
         self._profile = profile
@@ -54,6 +55,7 @@ class BatchEngine:
         self._compress = compress
         self._compression_profile = compression_profile
         self._compress_only = compress_only
+        self._on_job_state = on_job_state
         self._lock = threading.RLock()
         self._paused = False
         self._cancel_queued = False
@@ -124,6 +126,7 @@ class BatchEngine:
                 compress=self._compress or self._compress_only,
                 compression_profile=self._compression_profile,
                 compress_only=self._compress_only,
+                on_state=self._on_job_state,
             )
             done += 1
             if self._on_progress is not None:

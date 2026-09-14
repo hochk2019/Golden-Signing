@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
 from typing import Protocol
 
@@ -80,8 +81,17 @@ def process_one_job(
     compress: bool = False,
     compression_profile: object | None = None,
     compress_only: bool = False,
+    on_state: Callable[[SigningJob], None] | None = None,
 ) -> SigningJob:
     """Mutate job in place. Never raises for job errors."""
+
+    def _tick() -> None:
+        import contextlib
+
+        if on_state is not None:
+            with contextlib.suppress(Exception):
+                on_state(job)
+
     if job.state is JobState.CANCELLED or job.state is JobState.SKIPPED:
         return job
     if job.is_terminal and job.state is not JobState.DISCOVERED:
@@ -105,6 +115,7 @@ def process_one_job(
 
     if kind in (DocumentType.WORD, DocumentType.EXCEL):
         job.state = JobState.CONVERTING
+        _tick()
         ws = _workspace_dir()
         pdf_path = ws / f"{job.id}.pdf"
         try:
@@ -137,6 +148,7 @@ def process_one_job(
 
     if compress or compress_only:
         job.state = JobState.COMPRESSING
+        _tick()
         ws = job.working_pdf.parent if job.working_pdf else _workspace_dir()
         cmp_path = ws / f"{job.id}_c.pdf"
         try:
@@ -183,6 +195,7 @@ def process_one_job(
         job.output_path = default_output_path(job.input_path, output_dir)
 
     job.state = JobState.SIGNING
+    _tick()
     try:
         result = engine.sign(sign_input, job.output_path, profile=profile)
     except IoError as exc:

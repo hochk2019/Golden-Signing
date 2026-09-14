@@ -47,16 +47,32 @@ def download_file(
     *,
     timeout: float = 120.0,
     getter: Callable[[str, float], bytes] | None = None,
+    on_progress: Callable[[int, int], None] | None = None,
 ) -> Path:
+    """Download url → dest. on_progress(done_bytes, total_bytes_or_0)."""
     dest.parent.mkdir(parents=True, exist_ok=True)
     if getter is not None:
         data = getter(url, timeout)
         dest.write_bytes(data)
+        if on_progress is not None:
+            on_progress(len(data), len(data))
         return dest
     req = urllib.request.Request(url, headers={"User-Agent": "GoldenSigning-Updater"})
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp, open(dest, "wb") as fh:  # noqa: S310
-            shutil.copyfileobj(resp, fh)
+            total = 0
+            cl = resp.headers.get("Content-Length")
+            if cl and cl.isdigit():
+                total = int(cl)
+            done = 0
+            while True:
+                chunk = resp.read(256 * 1024)
+                if not chunk:
+                    break
+                fh.write(chunk)
+                done += len(chunk)
+                if on_progress is not None:
+                    on_progress(done, total)
     except Exception as exc:  # noqa: BLE001
         raise UpdateApplyError(f"tải thất bại: {exc}") from exc
     return dest
@@ -109,6 +125,7 @@ def stage_update(
     app_dir: Path | None,
     update_root: Path | None = None,
     download: Callable[[str, Path], Path] | None = None,
+    on_download_progress: Callable[[int, int], None] | None = None,
 ) -> ApplyResult:
     """
     Download zip → verify SHA256 → extract to updates/staged-<ver> →
@@ -123,7 +140,7 @@ def stage_update(
     if download is not None:
         download(zip_url, zip_path)
     else:
-        download_file(zip_url, zip_path)
+        download_file(zip_url, zip_path, on_progress=on_download_progress)
 
     if not expected_sha256:
         raise UpdateApplyError("thiếu SHA256 trên release — không cài")
