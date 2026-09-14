@@ -5,7 +5,7 @@
 $ErrorActionPreference = "Stop"
 $AppName = "Golden Sign"
 $Publisher = "HOC HK"
-$Version = "1.1.3"
+$Version = "1.1.4"
 $InstallDir = Join-Path $env:LOCALAPPDATA "Programs\GoldenSign"
 $ExeName = "GoldenSign.exe"
 $Payload = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -46,14 +46,28 @@ Set-ItemProperty -Path $RegPath -Name "UninstallString" -Value "powershell.exe -
 Set-ItemProperty -Path $RegPath -Name "NoModify" -Value 1 -Type DWord
 Set-ItemProperty -Path $RegPath -Name "NoRepair" -Value 1 -Type DWord
 
-# Start Menu shortcut
-$StartMenu = Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs\Golden Sign.lnk"
+# Start Menu + Desktop shortcuts (same icon as EXE)
 $Wsh = New-Object -ComObject WScript.Shell
-$Shortcut = $Wsh.CreateShortcut($StartMenu)
-$Shortcut.TargetPath = Join-Path $InstallDir $ExeName
-$Shortcut.WorkingDirectory = $InstallDir
-$Shortcut.IconLocation = Join-Path $InstallDir $ExeName
-$Shortcut.Save()
+$Exe = Join-Path $InstallDir $ExeName
 
-Write-Host "Cài xong. Mở Start Menu → Golden Sign."
-Write-Host "Gỡ cài đặt: Settings → Apps → Golden Sign, hoặc uninstall.ps1 trong $InstallDir"
+$StartMenu = Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs\Golden Sign.lnk"
+$sc = $Wsh.CreateShortcut($StartMenu)
+$sc.TargetPath = $Exe
+$sc.WorkingDirectory = $InstallDir
+$sc.IconLocation = $Exe
+$sc.Save()
+
+$Desktop = Join-Path ([Environment]::GetFolderPath('Desktop')) "Golden Sign.lnk"
+# Remove stale link so Windows picks up the new icon from EXE
+if (Test-Path $Desktop) { Remove-Item $Desktop -Force -ErrorAction SilentlyContinue }
+$sc2 = $Wsh.CreateShortcut($Desktop)
+$sc2.TargetPath = $Exe
+$sc2.WorkingDirectory = $InstallDir
+$sc2.IconLocation = $Exe
+$sc2.Save()
+
+# Refresh Windows icon cache (official)
+Start-Process "ie4uinit.exe" -ArgumentList "-show" -WindowStyle Hidden -ErrorAction SilentlyContinue
+
+Write-Host "Cai xong. Mo Desktop hoac Start Menu -> Golden Sign."
+Write-Host "Go cai dat: Settings -> Apps -> Golden Sign, hoac uninstall.ps1"
