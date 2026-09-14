@@ -32,10 +32,11 @@ PANEL_RGB: tuple[float, float, float] = (0.973, 0.980, 0.988)  # ~#F8FAFC
 PANEL_OPACITY = 0.55
 BORDER_RGB: tuple[float, float, float] = (0.86, 0.88, 0.90)
 
-FONT_SIZE = 9
-LEADING = 12
+FONT_SIZE = 10
+LEADING = 13
 _PAD_X = 8
 _PAD_Y = 6
+PANEL_OPACITY_DEFAULT = 0.55
 
 # Preset text colors (RGB 0-1 for pyHanko)
 DEFAULT_TEXT_COLORS: dict[str, tuple[float, float, float]] = {
@@ -108,6 +109,27 @@ def build_stamp_text(
     signer_display: str | None = None,
     when: str | None = None,
 ) -> str:
+    return fold_vietnamese(
+        _build_raw_stamp_text(
+            company=company,
+            mst=mst,
+            serial=serial,
+            expires=expires,
+            signer_display=signer_display,
+            when=when,
+        )
+    )
+
+
+def _build_raw_stamp_text(
+    *,
+    company: str | None = None,
+    mst: str | None = None,
+    serial: str | None = None,
+    expires: str | None = None,
+    signer_display: str | None = None,
+    when: str | None = None,
+) -> str:
     from datetime import datetime
 
     if not when:
@@ -127,7 +149,7 @@ def build_stamp_text(
         exp = str(expires)[:10]
         lines.append(f"Hiệu lực đến: {exp}")
     lines.append(f"Thời gian ký: {when}")
-    return fold_vietnamese("\n".join(lines))
+    return "\n".join(lines)
 
 
 LOGO_SIZE = 36
@@ -226,16 +248,34 @@ def _make_text_style(
     font_size: int = FONT_SIZE,
     leading: int = LEADING,
     text_color: tuple[float, float, float] | None = None,
+    prefer_embedded_vn: bool = True,
 ) -> Any:
-    from pyhanko.pdf_utils.font.basic import SimpleFontEngineFactory
     from pyhanko.pdf_utils.text import TextBoxStyle
+
+    text_col = text_color or DEFAULT_TEXT_COLORS["navy"]
+    if prefer_embedded_vn:
+        font_path = resolve_vietnamese_font()
+        if font_path:
+            try:
+                from pyhanko.pdf_utils.font.opentype import GlyphAccumulatorFactory
+
+                return TextBoxStyle(
+                    font=GlyphAccumulatorFactory(font_path, font_size=font_size),
+                    font_size=font_size,
+                    leading=leading,
+                    border_width=0,
+                    text_color=text_col,
+                )
+            except Exception:  # noqa: BLE001
+                pass
+    from pyhanko.pdf_utils.font.basic import SimpleFontEngineFactory
 
     return TextBoxStyle(
         font=SimpleFontEngineFactory("Helvetica", 0.5),
         font_size=font_size,
         leading=leading,
         border_width=0,
-        text_color=text_color or DEFAULT_TEXT_COLORS["navy"],
+        text_color=text_col,
     )
 
 
@@ -247,6 +287,7 @@ def signing_extras(
     cert_info: Any | None = None,
     text_color: tuple[float, float, float] | None = None,
     show_background: bool = True,
+    background_opacity: float = PANEL_OPACITY_DEFAULT,
     show_logo: bool = False,
     logo_path: Path | str | None = None,
     origin: tuple[int, int] | None = None,
@@ -271,13 +312,23 @@ def signing_extras(
         serial = getattr(cert_info, "serial", None) or None
         expires = getattr(cert_info, "not_valid_after", None) or None
 
-    stamp_text = build_stamp_text(
-        company=company or signer_display,
-        mst=mst,
-        serial=serial,
-        expires=expires,
-        signer_display=signer_display,
-    )
+    # Prefer full Vietnamese via embedded font; fold only if no font
+    if resolve_vietnamese_font():
+        stamp_text = _build_raw_stamp_text(
+            company=company or signer_display,
+            mst=mst,
+            serial=serial,
+            expires=expires,
+            signer_display=signer_display,
+        )
+    else:
+        stamp_text = build_stamp_text(
+            company=company or signer_display,
+            mst=mst,
+            serial=serial,
+            expires=expires,
+            signer_display=signer_display,
+        )
 
     field_name = "GoldenSigningVisible"
     use_logo = bool(show_logo)
@@ -295,6 +346,7 @@ def signing_extras(
         show_panel=show_background,
     )
     text_left = _PAD_X + (LOGO_SIZE + 10 if use_logo else 0)
+    opacity = min(1.0, max(0.05, float(background_opacity)))
     stamp = TextStampStyle(
         stamp_text=stamp_text,
         border_width=0,
@@ -305,7 +357,7 @@ def signing_extras(
             y_align=AxisAlignment.ALIGN_MIN,
             margins=Margins.uniform(0),  # type: ignore[no-untyped-call]
         ),
-        background_opacity=PANEL_OPACITY if show_background else 1.0,
+        background_opacity=opacity if show_background else 1.0,
         text_box_style=_make_text_style(text_color=text_color),
         inner_content_layout=SimpleBoxLayoutRule(
             x_align=AxisAlignment.ALIGN_MIN,

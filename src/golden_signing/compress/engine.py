@@ -69,26 +69,47 @@ class CompressionResult:
 
 
 def default_profile(tier: CompressionTier = CompressionTier.PUS_SAFE) -> CompressionProfile:
+    """Distinct, realistic presets (v1.1.1). Names are user-facing Vietnamese."""
     if tier is CompressionTier.LOSSLESS:
         return CompressionProfile(
-            name="Lossless",
+            name="Không nén ảnh (lossless)",
             tier=tier.value,
             target_bytes=None,
+            jpeg_quality=95,
+            max_dpi=300,
             downsample=False,
             strip_metadata=True,
         )
     if tier is CompressionTier.BALANCED:
         return CompressionProfile(
-            name="Balanced",
+            name="Cân bằng (chất lượng tốt)",
             tier=tier.value,
             target_bytes=None,
-            jpeg_quality=80,
-            max_dpi=150,
+            jpeg_quality=85,
+            max_dpi=200,
             downsample=True,
+            strip_metadata=True,
         )
     if tier is CompressionTier.CUSTOM:
-        return CompressionProfile(name="Custom", tier=tier.value)
-    return CompressionProfile()
+        return CompressionProfile(
+            name="Tùy chỉnh",
+            tier=tier.value,
+            target_bytes=500 * 1024,
+            jpeg_quality=75,
+            max_dpi=160,
+            downsample=True,
+        )
+    # PUS Safe — aggressive enough for customs upload size
+    return CompressionProfile(
+        name="PUS Safe — mục tiêu ≤400 KB",
+        tier=CompressionTier.PUS_SAFE.value,
+        target_bytes=400 * 1024,
+        signature_reserve_bytes=32 * 1024,
+        jpeg_quality=60,
+        max_dpi=120,
+        downsample=True,
+        strip_metadata=True,
+    )
 
 
 def load_profiles_path() -> Path:

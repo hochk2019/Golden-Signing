@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -15,6 +16,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QPushButton,
+    QSlider,
     QVBoxLayout,
     QWidget,
 )
@@ -46,6 +48,7 @@ class SignSettingsDialog(QDialog):
         logo_path: str,
         sig_page: int,
         sig_origin: tuple[int, int] | None,
+        background_opacity: float = 0.55,
         sample_pdf: Path | None = None,
         parent: QWidget | None = None,
     ) -> None:
@@ -82,6 +85,21 @@ class SignSettingsDialog(QDialog):
         self._bg = QCheckBox("Nền nhạt")
         self._bg.setChecked(show_bg)
         form.addRow("", self._bg)
+
+        # Opacity 10–100% (maps to 0.10–1.00)
+        self._opacity = QSlider(Qt.Orientation.Horizontal)
+        self._opacity.setRange(10, 100)
+        self._opacity.setValue(int(round(float(background_opacity) * 100)))
+        self._opacity_label = QLabel(f"Độ mờ nền: {self._opacity.value()}%")
+        self._opacity.valueChanged.connect(
+            lambda v: self._opacity_label.setText(f"Độ mờ nền: {v}%")
+        )
+        op_row = QHBoxLayout()
+        op_row.addWidget(self._opacity, stretch=1)
+        op_row.addWidget(self._opacity_label)
+        op_wrap = QWidget()
+        op_wrap.setLayout(op_row)
+        form.addRow("Nền / độ mờ", op_wrap)
 
         self._logo = QCheckBox("Hiện logo" if not show_logo else "Ẩn logo")
         self._logo.setChecked(show_logo)
@@ -164,4 +182,5 @@ class SignSettingsDialog(QDialog):
             "logo_path": self._logo_path,
             "sig_page": self._sig_page,
             "sig_origin": self._sig_origin,
+            "background_opacity": self._opacity.value() / 100.0,
         }

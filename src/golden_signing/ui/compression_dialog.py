@@ -44,10 +44,22 @@ class CompressionSettingsDialog(QDialog):
         form.setSpacing(8)
 
         self._tier = QComboBox()
-        self._tier.addItem("Lossless — không giảm chất lượng", CompressionTier.LOSSLESS.value)
-        self._tier.addItem("Balanced — cân bằng", CompressionTier.BALANCED.value)
-        self._tier.addItem("PUS Safe — mục tiêu 400 KB", CompressionTier.PUS_SAFE.value)
-        self._tier.addItem("Custom — tùy chỉnh", CompressionTier.CUSTOM.value)
+        self._tier.addItem(
+            "Không nén ảnh (lossless) — giữ nguyên chất lượng",
+            CompressionTier.LOSSLESS.value,
+        )
+        self._tier.addItem(
+            "Cân bằng — JPEG ~85 · DPI ≤200",
+            CompressionTier.BALANCED.value,
+        )
+        self._tier.addItem(
+            "PUS Safe — mục tiêu ≤400 KB",
+            CompressionTier.PUS_SAFE.value,
+        )
+        self._tier.addItem(
+            "Tùy chỉnh — tự đặt target / JPEG / DPI",
+            CompressionTier.CUSTOM.value,
+        )
         for i in range(self._tier.count()):
             if self._tier.itemData(i) == self._profile.tier:
                 self._tier.setCurrentIndex(i)
@@ -119,22 +131,42 @@ class CompressionSettingsDialog(QDialog):
         tier = str(self._tier.currentData())
         custom = tier == CompressionTier.CUSTOM.value
         lossless = tier == CompressionTier.LOSSLESS.value
+        # Load distinct preset numbers when switching profile
+        p = default_profile(CompressionTier(tier))  # type: ignore[arg-type]
         self._target_kb.setEnabled(custom or tier == CompressionTier.PUS_SAFE.value)
         self._quality.setEnabled(not lossless)
         self._dpi.setEnabled(not lossless)
         self._downsample.setEnabled(not lossless)
-        if tier == CompressionTier.PUS_SAFE.value:
-            self._target_kb.setValue(400)
-
-    def _reset(self) -> None:
-        p = default_profile(CompressionTier.PUS_SAFE)
-        self._tier.setCurrentIndex(2)
-        self._target_kb.setValue(400)
-        self._reserve_kb.setValue(32)
+        if p.target_bytes:
+            self._target_kb.setValue(p.target_bytes // 1024)
+        self._reserve_kb.setValue(p.signature_reserve_bytes // 1024)
         self._quality.setValue(p.jpeg_quality)
         self._dpi.setValue(p.max_dpi)
-        self._downsample.setChecked(True)
-        self._strip_meta.setChecked(True)
+        self._downsample.setChecked(p.downsample)
+        self._strip_meta.setChecked(p.strip_metadata)
+        # Only auto-rename when still on a stock name
+        stock = {
+            "PUS Safe 400KB",
+            "Lossless",
+            "Balanced",
+            "Custom",
+            "Không nén ảnh (lossless)",
+            "Cân bằng (chất lượng tốt)",
+            "Tùy chỉnh",
+            "PUS Safe — mục tiêu ≤400 KB",
+        }
+        if self._name.text().strip() in stock or not self._name.text().strip():
+            self._name.setText(p.name)
+
+    def _reset(self) -> None:
+        self._tier.setCurrentIndex(2)  # PUS Safe
+        p = default_profile(CompressionTier.PUS_SAFE)
+        self._target_kb.setValue((p.target_bytes or 400 * 1024) // 1024)
+        self._reserve_kb.setValue(p.signature_reserve_bytes // 1024)
+        self._quality.setValue(p.jpeg_quality)
+        self._dpi.setValue(p.max_dpi)
+        self._downsample.setChecked(p.downsample)
+        self._strip_meta.setChecked(p.strip_metadata)
         self._name.setText(p.name)
 
     def profile(self) -> CompressionProfile:

@@ -39,6 +39,7 @@ class TokenPdfSigner:
         self.cert_info: object | None = None
         self.text_color: tuple[float, float, float] | None = None
         self.show_background = True
+        self.background_opacity = 0.55
         self.show_logo = False
         self.logo_path: Path | None = None
         self.sig_origin: tuple[int, int] | None = None
@@ -275,6 +276,7 @@ class TokenPdfSigner:
                 cert_info=self.cert_info,
                 text_color=self.text_color,
                 show_background=self.show_background,
+                background_opacity=getattr(self, "background_opacity", 0.55),
                 show_logo=self.show_logo,
                 logo_path=self.logo_path,
                 origin=self.sig_origin,

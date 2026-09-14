@@ -467,6 +467,12 @@ class MainWindow(QMainWindow):
     def _apply_engine_appearance(self, engine) -> None:  # noqa: ANN001
         engine.text_color = self._selected_text_color()
         engine.show_background = self._bg_enabled()
+        try:
+            engine.background_opacity = float(
+                str(self._settings.value("signatureBgOpacity", "0.55") or "0.55")
+            )
+        except (TypeError, ValueError):
+            engine.background_opacity = 0.55
         engine.show_logo = self._logo_check.isChecked()
         engine.logo_path = self._custom_logo_path()
         if engine.show_logo and engine.logo_path is None:
@@ -706,6 +712,9 @@ class MainWindow(QMainWindow):
             logo_path=str(self._settings.value("signatureLogoPath", "") or ""),
             sig_page=self._sig_page,
             sig_origin=self._sig_origin,
+            background_opacity=float(
+                str(self._settings.value("signatureBgOpacity", "0.55") or "0.55")
+            ),
             sample_pdf=sample,
             parent=self,
         )
@@ -726,6 +735,9 @@ class MainWindow(QMainWindow):
         self._sig_origin = r["sig_origin"]
         self._settings.setValue("signatureTextColor", r["color_key"])
         self._settings.setValue("signatureBg", "1" if r["show_bg"] else "0")
+        self._settings.setValue(
+            "signatureBgOpacity", str(float(r.get("background_opacity", 0.55)))
+        )
         self._settings.setValue("signatureLogo", "1" if r["show_logo"] else "0")
         self._save_active_profile()
         self.statusBar().showMessage("Đã lưu cài đặt ký", 3000)
