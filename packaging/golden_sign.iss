@@ -60,6 +60,20 @@ Type: filesandordirs; Name: "{app}"
 var
   ResultCode: Integer;
 
+procedure RefreshIconCache();
+var
+  PS: String;
+begin
+  { Clear Windows icon cache + notify shell so Desktop .lnk shows new EXE icon.
+    OneDrive Desktop paths still work because we target the .lnk we just wrote. }
+  PS := 'Remove-Item -LiteralPath (Join-Path $env:LOCALAPPDATA ''IconCache.db'') -Force -ErrorAction SilentlyContinue; '
+      + 'ie4uinit.exe -ClearIconCache; ie4uinit.exe -show; '
+      + '$t = Add-Type -MemberDefinition ''[DllImport(\"shell32.dll\")] public static extern void SHChangeNotify(uint e, uint f, IntPtr a, IntPtr b);'' '
+      + '-Name W -Namespace N -PassThru; $t::SHChangeNotify(0x08000000, 0, [IntPtr]::Zero, [IntPtr]::Zero);';
+  Exec('powershell.exe', '-NoProfile -ExecutionPolicy Bypass -Command "' + PS + '"',
+       '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+end;
+
 procedure CurStepChanged(CurStep: TSetupStep);
 var
   DesktopLnk: String;
@@ -72,8 +86,5 @@ begin
       DeleteFile(DesktopLnk);
   end;
   if CurStep = ssPostInstall then
-  begin
-    { Official Windows icon-cache refresh }
-    Exec('ie4uinit.exe', '-show', '', SW_HIDE, ewNoWait, ResultCode);
-  end;
+    RefreshIconCache();
 end;

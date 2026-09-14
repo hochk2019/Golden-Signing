@@ -1,4 +1,21 @@
-# NEXT ACTION — v1.1.0
+# NEXT ACTION
+
+**Current:** v1.1.5 released; icon-cache fix pending rebuild  
+**Last verified:** full pytest exit 0; helper CREATE_NO_WINDOW fix tested live  
+**Next:** rebuild 1.1.5 with icon-cache fix → user reinstalls → test update 1.1.5→next  
+
+## Version compare note
+
+`check_for_update` uses `info.version > local` — same version (1.1.5 == 1.1.5) → **no update offered** (correct).
+
+## Do not
+
+- Do not claim PUS compatibility without real upload.
+- Do not compress a PDF after it is signed.
+- Do not rewrite Signing Core without regression tests.
+- Do not bundle Ghostscript AGPL.
+- Do not write PIN/private key to logs.
+- Do not overwrite source files.
 
 **Current phase:** I3 polish + RC prep (core convert/compress/UI wired)
 **Current task:** T53 UI polish · T54 docs/release

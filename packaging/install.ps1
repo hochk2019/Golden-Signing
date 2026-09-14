@@ -66,8 +66,14 @@ $sc2.WorkingDirectory = $InstallDir
 $sc2.IconLocation = $Exe
 $sc2.Save()
 
-# Refresh Windows icon cache (official)
-Start-Process "ie4uinit.exe" -ArgumentList "-show" -WindowStyle Hidden -ErrorAction SilentlyContinue
+# Refresh Windows icon cache so Desktop .lnk shows the new EXE icon
+Remove-Item -LiteralPath (Join-Path $env:LOCALAPPDATA "IconCache.db") -Force -ErrorAction SilentlyContinue
+Start-Process "ie4uinit.exe" -ArgumentList "-ClearIconCache" -WindowStyle Hidden -Wait -ErrorAction SilentlyContinue
+Start-Process "ie4uinit.exe" -ArgumentList "-show" -WindowStyle Hidden -Wait -ErrorAction SilentlyContinue
+# Notify shell of association/icon change
+$sig = '[DllImport("shell32.dll")] public static extern void SHChangeNotify(uint e, uint f, IntPtr a, IntPtr b);'
+$t = Add-Type -MemberDefinition $sig -Name W -Namespace N -PassThru
+$t::SHChangeNotify(0x08000000, 0, [IntPtr]::Zero, [IntPtr]::Zero)
 
 Write-Host "Cai xong. Mo Desktop hoac Start Menu -> Golden Sign."
-Write-Host "Go cai dat: Settings -> Apps -> Golden Sign, hoac uninstall.ps1"
+Write-Host "Neu icon Desktop van cu: khoi dong lai Explorer hoac dang xuat."
