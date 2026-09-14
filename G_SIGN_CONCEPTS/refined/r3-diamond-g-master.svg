@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <title>REFINE 3 — Diamond G (Golden Logistics DNA + signing slash)</title>
+
+  <rect x="512" y="70" width="620" height="620" rx="28"
+        transform="rotate(45 512 512)" fill="#D99A22"/>
+  <path d="M650 310 A175 175 0 1 0 650 710"
+        fill="none" stroke="#111827" stroke-width="82" stroke-linecap="butt"/>
+  <rect x="520" y="465" width="150" height="74" fill="#111827"/>
+  <path d="M270 690 C500 780 720 620 850 340"
+        fill="none" stroke="#F4C15D" stroke-width="52" stroke-linecap="round"/>
+  <path d="M780 430 L850 300 L900 400" fill="none" stroke="#A96F08"
+        stroke-width="36" stroke-linecap="round" stroke-linejoin="round"/>
+
+</svg>

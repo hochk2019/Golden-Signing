@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <title>REFINE 1 — One-stroke G-Sign (master)</title>
+
+  <!-- Master geometry: one continuous gesture G -->
+  <path d="M720 250
+           C500 190 280 330 280 540
+           C280 760 500 870 680 810
+           C740 790 760 730 760 660
+           L580 660
+           L760 660
+           C840 660 880 560 890 400"
+        fill="none" stroke="#D99A22" stroke-width="108"
+        stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- verification terminal (thick, integrated — not UI check) -->
+  <path d="M820 500 L890 340 L950 460" fill="none" stroke="#A96F08"
+        stroke-width="52" stroke-linecap="round" stroke-linejoin="round"/>
+
+</svg>

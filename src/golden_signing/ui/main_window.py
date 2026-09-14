@@ -1070,9 +1070,19 @@ class MainWindow(QMainWindow):
         self._compress_only_btn.setEnabled(enable)
 
     def _on_compress_only(self) -> None:
-        jobs = [j for j in self._model.jobs() if not j.is_terminal]
+        from golden_signing.batch.state import JobState
+
+        jobs = [
+            j
+            for j in self._model.jobs()
+            if not j.is_terminal and j.state is not JobState.COMPRESSED
+        ]
         if not jobs:
-            QMessageBox.information(self, "Golden Sign", "Không có file chờ xử lý.")
+            QMessageBox.information(
+                self,
+                "Golden Sign",
+                "Không có file chờ nén (file đã nén sẽ chuyển sang trạng thái COMPRESSED).",
+            )
             return
         from golden_signing.signing.pdf_signer import TestCertPdfSigner
 

@@ -5,7 +5,9 @@ from pathlib import Path
 
 # SPECPATH = packaging/; repository root is its parent
 root = Path(SPECPATH).resolve().parent  # noqa: F821 — provided by PyInstaller
-icon = root / "assets" / "branding" / "golden-app-icon.ico"
+icon = root / "assets" / "branding" / "gsign" / "golden-signing.ico"
+if not icon.is_file():
+    icon = root / "assets" / "branding" / "golden-app-icon.ico"
 
 # Drop unused Qt / Python stacks (Widgets app: Core+Gui+Widgets only).
 _EXCLUDES = [

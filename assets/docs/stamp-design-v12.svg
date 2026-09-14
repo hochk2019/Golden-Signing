@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 280" font-family="Segoe UI, sans-serif">
+  <rect width="520" height="280" fill="#F8FAFC"/>
+  <text x="24" y="36" fill="#0F172A" font-size="16" font-weight="600">Thiết kế chữ ký hiển thị — Golden Sign (chờ duyệt)</text>
+  <text x="24" y="56" fill="#475569" font-size="11">1) Chữ liền mạch (sửa bug spacing) · 2) Tên công ty đậm + to hơn 2 size · 3) Nền ôm sát chữ</text>
+
+  <!-- CURRENT (bug) -->
+  <rect x="24" y="80" width="220" height="150" rx="8" fill="#FFFFFF" stroke="#CBD5E1"/>
+  <text x="36" y="102" fill="#475569" font-size="11">HIỆN TẠI (bug spacing)</text>
+  <rect x="36" y="116" width="196" height="96" fill="#F8FAFC" stroke="#CBD5E1" opacity="0.9"/>
+  <text x="44" y="136" fill="#B91C1C" font-size="9">Da ky boi: C O N G T Y T N H H</text>
+  <text x="44" y="152" fill="#B91C1C" font-size="9">M S T: 2 3 0 0 9 4 4 6 3 7</text>
+  <text x="44" y="168" fill="#B91C1C" font-size="9">H i e u l u c d e n: 2 0 2 8</text>
+  <text x="44" y="184" fill="#B91C1C" font-size="9">Thoi gian ky: 2026-09-14</text>
+  <text x="36" y="230" fill="#64748B" font-size="10">Nền rộng, chữ thưa, cùng cỡ</text>
+
+  <!-- PROPOSED -->
+  <rect x="260" y="80" width="236" height="150" rx="8" fill="#FFFFFF" stroke="#1E3A5F" stroke-width="1.5"/>
+  <text x="272" y="102" fill="#1E3A5F" font-size="11" font-weight="600">ĐỀ XUẤT</text>
+  <rect x="272" y="114" width="168" height="88" rx="2" fill="#F8FAFC" stroke="#CBD5E1"/>
+  <text x="280" y="134" fill="#1E3A5F" font-size="12" font-weight="700">CÔNG TY TNHH JAEYOUNG VINA</text>
+  <text x="280" y="150" fill="#1E3A5F" font-size="10">Đã ký bởi · MST: 2300944637</text>
+  <text x="280" y="164" fill="#1E3A5F" font-size="10">Serial: 540117eca…</text>
+  <text x="280" y="178" fill="#1E3A5F" font-size="10">Hiệu lực đến: 2028-07-06</text>
+  <text x="280" y="192" fill="#1E3A5F" font-size="10">Thời gian ký: 2026-09-14 08:31</text>
+  <text x="272" y="230" fill="#64748B" font-size="10">Nền ôm sát · tên đậm 12pt · meta 10pt</text>
+
+  <!-- legend -->
+  <rect x="24" y="248" width="14" height="14" fill="#F8FAFC" stroke="#CBD5E1"/>
+  <text x="44" y="259" fill="#475569" font-size="11">Padding nền: 6px (trước 8px) · cắt bỏ khoảng trống thừa</text>
+</svg>

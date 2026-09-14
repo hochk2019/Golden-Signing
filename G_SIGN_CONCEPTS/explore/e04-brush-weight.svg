@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <title>Brush one-stroke — thick bowl, thin flourish (calligraphic)</title>
+
+  <!-- simulated brush: overlapping strokes for weight -->
+  <path d="M680 250 C480 200 300 340 300 520 C300 720 500 820 660 770
+           C720 750 740 700 740 640 L560 640 L740 640
+           C800 640 830 560 835 420"
+        fill="none" stroke="#D99A22" stroke-width="100" stroke-linecap="round"/>
+  <path d="M680 250 C480 200 300 340 300 520 C300 720 500 820 660 770
+           C720 750 740 700 740 640 L560 640 L740 640
+           C800 640 830 560 835 420"
+        fill="none" stroke="#A96F08" stroke-width="48" stroke-linecap="round"/>
+  <path d="M835 420 C850 360 870 300 900 250"
+        fill="none" stroke="#F4C15D" stroke-width="28" stroke-linecap="round"/>
+
+</svg>

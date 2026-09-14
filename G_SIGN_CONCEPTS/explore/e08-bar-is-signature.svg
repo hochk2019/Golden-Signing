@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <title>Bar-is-signature — G underline IS the signing line + flick</title>
+
+  <!-- only the bowl -->
+  <path d="M700 280 A260 260 0 1 0 700 700"
+        fill="none" stroke="#D99A22" stroke-width="100" stroke-linecap="butt"/>
+  <!-- signature line replaces G bar, exits with energy -->
+  <path d="M420 620 L680 620 C780 620 820 520 830 400"
+        fill="none" stroke="#A96F08" stroke-width="66" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M770 470 L830 340 L890 430" fill="none" stroke="#F4C15D" stroke-width="40"
+        stroke-linecap="round" stroke-linejoin="round"/>
+
+</svg>

@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <title>Ink-node — continuous stroke ends inside G counter as seal dot</title>
+
+  <path d="M720 280 C500 220 300 360 300 540 C300 740 500 840 680 780
+           L680 620 L540 620 L680 620
+           C760 620 800 540 800 430"
+        fill="none" stroke="#D99A22" stroke-width="90" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="800" cy="380" r="36" fill="#F4C15D"/>
+
+</svg>

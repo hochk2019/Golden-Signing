@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <title>A — Circular G-Sign</title>
+  <!-- G ring with opening at right (classic G gap) -->
+  <path d="M720 320 A300 300 0 1 0 720 704"
+        fill="none" stroke="#D99A22" stroke-width="104" stroke-linecap="butt"/>
+  <!-- G bar -->
+  <rect x="520" y="456" width="220" height="96" rx="8" fill="#D99A22"/>
+  <!-- signature: enters from left-bottom, exits G opening, flicks up (verify) -->
+  <path d="M250 700 C380 780 520 760 640 680 C720 620 780 520 800 400"
+        fill="none" stroke="#A96F08" stroke-width="58" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M730 460 L800 360 L850 440" fill="none" stroke="#F4C15D" stroke-width="50"
+        stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

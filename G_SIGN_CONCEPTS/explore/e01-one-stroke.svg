@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <title>One-stroke G — same path = bowl + bar + signing flick</title>
+
+  <path d="M700 260
+           C520 200 300 320 300 512
+           C300 720 480 820 640 780
+           C700 760 720 700 720 640
+           L560 640
+           L720 640
+           C780 640 820 560 830 430"
+        fill="none" stroke="#D99A22" stroke-width="92"
+        stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M760 500 L830 360 L890 470" fill="none" stroke="#F4C15D"
+        stroke-width="40" stroke-linecap="round" stroke-linejoin="round"/>
+
+</svg>

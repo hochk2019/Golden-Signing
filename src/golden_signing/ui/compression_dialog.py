@@ -64,7 +64,6 @@ class CompressionSettingsDialog(QDialog):
             if self._tier.itemData(i) == self._profile.tier:
                 self._tier.setCurrentIndex(i)
                 break
-        self._tier.currentIndexChanged.connect(self._on_tier)
         form.addRow("Profile", self._tier)
 
         self._target_kb = QSpinBox()
@@ -125,18 +124,27 @@ class CompressionSettingsDialog(QDialog):
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
         root.addWidget(buttons)
-        self._on_tier()
+        # Only enable/disable on open — do NOT overwrite saved values.
+        self._apply_tier_enabled()
+        self._tier.currentIndexChanged.connect(self._on_tier_changed)
 
-    def _on_tier(self) -> None:
+    def _apply_tier_enabled(self) -> None:
         tier = str(self._tier.currentData())
         custom = tier == CompressionTier.CUSTOM.value
         lossless = tier == CompressionTier.LOSSLESS.value
-        # Load distinct preset numbers when switching profile
-        p = default_profile(CompressionTier(tier))  # type: ignore[arg-type]
         self._target_kb.setEnabled(custom or tier == CompressionTier.PUS_SAFE.value)
         self._quality.setEnabled(not lossless)
         self._dpi.setEnabled(not lossless)
         self._downsample.setEnabled(not lossless)
+
+    def _on_tier_changed(self) -> None:
+        """User switched profile → load that preset's numbers."""
+        self._apply_tier_enabled()
+        tier = str(self._tier.currentData())
+        try:
+            p = default_profile(CompressionTier(tier))  # type: ignore[arg-type]
+        except ValueError:
+            return
         if p.target_bytes:
             self._target_kb.setValue(p.target_bytes // 1024)
         self._reserve_kb.setValue(p.signature_reserve_bytes // 1024)
@@ -144,7 +152,6 @@ class CompressionSettingsDialog(QDialog):
         self._dpi.setValue(p.max_dpi)
         self._downsample.setChecked(p.downsample)
         self._strip_meta.setChecked(p.strip_metadata)
-        # Only auto-rename when still on a stock name
         stock = {
             "PUS Safe 400KB",
             "Lossless",

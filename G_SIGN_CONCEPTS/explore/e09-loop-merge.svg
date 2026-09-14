@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <title>Loop-merge — single loop reads as G; lower swing = sign</title>
+
+  <path d="M560 300
+           C760 280 820 480 700 560
+           C620 610 480 600 420 520
+           C360 440 400 320 520 300
+           C700 280 860 400 860 560
+           C860 720 700 820 520 780"
+        fill="none" stroke="#D99A22" stroke-width="84"
+        stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M520 780 C600 800 700 780 780 700"
+        fill="none" stroke="#A96F08" stroke-width="40" stroke-linecap="round"/>
+
+</svg>

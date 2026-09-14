@@ -32,10 +32,11 @@ PANEL_RGB: tuple[float, float, float] = (0.973, 0.980, 0.988)  # ~#F8FAFC
 PANEL_OPACITY = 0.55
 BORDER_RGB: tuple[float, float, float] = (0.86, 0.88, 0.90)
 
-FONT_SIZE = 10
-LEADING = 13
-_PAD_X = 8
-_PAD_Y = 6
+FONT_SIZE = 11
+LEADING = 14
+_PAD_X = 6
+_PAD_Y = 4
+COMPANY_SIZE = 13
 PANEL_OPACITY_DEFAULT = 0.55
 
 # Preset text colors (RGB 0-1 for pyHanko)
@@ -98,6 +99,30 @@ def fold_vietnamese(text: str) -> str:
             continue
         out.append(ch)
     return "".join(out)
+
+
+def _build_meta_stamp_text(
+    *,
+    mst: str | None = None,
+    serial: str | None = None,
+    expires: str | None = None,
+    when: str | None = None,
+) -> str:
+    """Meta lines only (company drawn bold on the card). Folded ASCII."""
+    from datetime import datetime
+
+    if not when:
+        when = datetime.now().strftime("%Y-%m-%d %H:%M")
+    lines: list[str] = []
+    if mst:
+        lines.append(f"MST: {mst}")
+    if serial:
+        ser = serial if len(serial) <= 28 else serial[:27] + "..."
+        lines.append(f"Serial: {ser}")
+    if expires:
+        lines.append(f"Valid until: {str(expires)[:10]}")
+    lines.append(f"Signed at: {when}")
+    return fold_vietnamese("\n".join(lines))
 
 
 def build_stamp_text(
@@ -163,7 +188,7 @@ def default_logo_path() -> Path | None:
 
 
 class _StampCard(PdfContent):
-    """Panel + optional logo mark on the left of the signature block."""
+    """Panel + optional logo + bold company line (Helvetica-Bold)."""
 
     def __init__(
         self,
@@ -174,16 +199,39 @@ class _StampCard(PdfContent):
         logo_path: Path | None = None,
         logo_size: float = LOGO_SIZE,
         show_panel: bool = True,
+        company_text: str | None = None,
+        text_rgb: tuple[float, float, float] | None = None,
     ) -> None:
         super().__init__(box=BoxConstraints(width=width, height=height))
         self._rgb = rgb
         self._logo_path = logo_path
         self._logo_size = logo_size
         self._show_panel = show_panel
+        self._company = (company_text or "").strip()
+        self._text_rgb = text_rgb or (0.118, 0.227, 0.373)
         self._logo: Any = None
+        self._bold_font_name = "FHB"
 
     def set_writer(self, writer: Any) -> None:
         self.writer = writer
+        if writer is not None:
+            try:
+                from pyhanko.pdf_utils.generic import Dictionary, Name
+
+                font_obj = Dictionary(
+                    Type=Name.Font,
+                    Subtype=Name.Type1,
+                    BaseFont=Name("Helvetica-Bold"),
+                    Encoding=Name.WinAnsiEncoding,
+                )
+                ref = writer.add_object(font_obj)
+                from pyhanko.pdf_utils.generic import Name as NameObj
+
+                self.set_resource(
+                    "Font", NameObj(self._bold_font_name), ref  # type: ignore[arg-type]
+                )
+            except Exception:  # noqa: BLE001
+                self._bold_font_name = ""
         if self._logo_path and self._logo_path.is_file() and writer is not None:
             from pyhanko.pdf_utils.images import PdfImage
 
@@ -209,12 +257,25 @@ class _StampCard(PdfContent):
                     f"{br:.3f} {bg:.3f} {bb:.3f} RG 0.5 w 0.25 0.25 {w - 0.5:.2f} {h - 0.5:.2f} re S"
                 ).encode("ascii")
             )
+        # Bold company under logo gutter
+        if self._company and self._bold_font_name:
+            tr, tg, tb = self._text_rgb
+            tx = _PAD_X + (self._logo_size + 8 if self._logo is not None else 0)
+            ty = h - COMPANY_SIZE - 3
+            # WinAnsi-safe (company already folded to ASCII)
+            safe = self._company.encode("ascii", "replace").decode("ascii")
+            safe = safe.replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
+            parts.append(
+                (
+                    f"BT /{self._bold_font_name} {COMPANY_SIZE} Tf "
+                    f"{tr:.3f} {tg:.3f} {tb:.3f} rg "
+                    f"1 0 0 1 {tx:.2f} {ty:.2f} Tm ({safe}) Tj ET"
+                ).encode("ascii")
+            )
         if self._logo is not None:
-            # Vertically center logo on the left gutter
             ly = max(0.0, (h - self._logo_size) / 2.0)
             try:
                 logo_ops = self._logo.render()
-                # Critical: pull XObject / resources into this appearance stream
                 with contextlib.suppress(Exception):
                     self.import_resources(self._logo.resources)
             except Exception:  # noqa: BLE001
@@ -234,13 +295,14 @@ def estimate_stamp_box(
 ) -> tuple[int, int, int, int]:
     """Tight box hugging stamp text; reserve left gutter when logo is on."""
     lines = stamp_text.split("\n") or [""]
+    # Segoe/Arial average advance ~0.52em; digits ~0.55; use 0.56 for VN
     max_chars = max((len(line) for line in lines), default=1)
-    text_w = int(max_chars * FONT_SIZE * 0.52)
-    logo_w = (LOGO_SIZE + 12) if with_logo else 0
+    text_w = int(max_chars * FONT_SIZE * 0.56)
+    logo_w = (LOGO_SIZE + 10) if with_logo else 0
     width = text_w + logo_w + _PAD_X * 2
-    height = max(len(lines) * LEADING + _PAD_Y * 2 + 2, LOGO_SIZE + 12 if with_logo else 0)
+    height = max(len(lines) * LEADING + _PAD_Y * 2, LOGO_SIZE + 8 if with_logo else 0)
     x0, y0 = origin
-    return (x0, y0, x0 + max(width, 160), y0 + max(height, 48))
+    return (x0, y0, x0 + max(width, 140), y0 + max(height, 40))
 
 
 def _make_text_style(
@@ -259,8 +321,10 @@ def _make_text_style(
             try:
                 from pyhanko.pdf_utils.font.opentype import GlyphAccumulatorFactory
 
+                # font_size=1 in factory: advances stay in em units; TextBoxStyle
+                # scales once. Passing font_size twice spaced letters in Foxit.
                 return TextBoxStyle(
-                    font=GlyphAccumulatorFactory(font_path, font_size=font_size),
+                    font=GlyphAccumulatorFactory(font_path, font_size=1),
                     font_size=font_size,
                     leading=leading,
                     border_width=0,
@@ -312,23 +376,14 @@ def signing_extras(
         serial = getattr(cert_info, "serial", None) or None
         expires = getattr(cert_info, "not_valid_after", None) or None
 
-    # Prefer full Vietnamese via embedded font; fold only if no font
-    if resolve_vietnamese_font():
-        stamp_text = _build_raw_stamp_text(
-            company=company or signer_display,
-            mst=mst,
-            serial=serial,
-            expires=expires,
-            signer_display=signer_display,
-        )
-    else:
-        stamp_text = build_stamp_text(
-            company=company or signer_display,
-            mst=mst,
-            serial=serial,
-            expires=expires,
-            signer_display=signer_display,
-        )
+    # Company ALWAYS in stamp_text (card-only bold line failed to render in Foxit).
+    stamp_text = build_stamp_text(
+        company=company or signer_display,
+        mst=mst,
+        serial=serial,
+        expires=expires,
+        signer_display=signer_display,
+    )
 
     field_name = "GoldenSigningVisible"
     use_logo = bool(show_logo)
@@ -344,6 +399,8 @@ def signing_extras(
         rgb=PANEL_RGB,
         logo_path=resolved_logo if use_logo else None,
         show_panel=show_background,
+        company_text=None,  # company is in stamp_text (visible)
+        text_rgb=text_color or DEFAULT_TEXT_COLORS["navy"],
     )
     text_left = _PAD_X + (LOGO_SIZE + 10 if use_logo else 0)
     opacity = min(1.0, max(0.05, float(background_opacity)))
@@ -358,7 +415,7 @@ def signing_extras(
             margins=Margins.uniform(0),  # type: ignore[no-untyped-call]
         ),
         background_opacity=opacity if show_background else 1.0,
-        text_box_style=_make_text_style(text_color=text_color),
+        text_box_style=_make_text_style(text_color=text_color, prefer_embedded_vn=False),
         inner_content_layout=SimpleBoxLayoutRule(
             x_align=AxisAlignment.ALIGN_MIN,
             y_align=AxisAlignment.ALIGN_MIN,

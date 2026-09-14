@@ -98,6 +98,36 @@ def process_one_job(
         return job
 
     job.attempts += 1
+
+    # Plan A: job already compressed (CHỈ NÉN) → sign that artifact, don't re-compress.
+    already_compressed = (
+        job.state is JobState.COMPRESSED
+        and not compress_only
+        and job.output_path is not None
+        and Path(job.output_path).is_file()
+    )
+    if already_compressed:
+        sign_input = Path(job.output_path)  # type: ignore[arg-type]
+        job.working_pdf = sign_input
+        if job.source_size is None:
+            try:
+                job.source_size = job.input_path.stat().st_size
+            except OSError:
+                job.source_size = None
+        job.state = JobState.PREFLIGHT
+        pre = preflight_pdf(sign_input)
+        if pre.level is PreflightLevel.BLOCK:
+            job.state = JobState.PREFLIGHT_FAILED
+            job.error_code = "PREFLIGHT_FAILED"
+            job.message = "; ".join(pre.errors) or "preflight blocked"
+            return job
+        job.state = JobState.READY
+        # Sign into a new file so the compressed PDF stays available
+        job.output_path = default_output_path(job.input_path, output_dir)
+        job.state = JobState.SIGNING
+        _tick()
+        return _sign_job(job, engine, profile, sign_input)
+
     if not job.input_path.exists():
         job.state = JobState.IO_ERROR
         job.error_code = "IO_ERROR"
@@ -182,8 +212,10 @@ def process_one_job(
                 shutil.copy2(sign_input, out)
                 job.output_path = out
                 job.final_size = out.stat().st_size
-                job.state = JobState.SUCCESS
+                # NOT SUCCESS — user may still KÝ SỐ this file (Plan A)
+                job.state = JobState.COMPRESSED
                 job.error_code = None
+                job.message = (job.message + " · đã nén, chưa ký").strip(" ·")
             except OSError as exc:
                 job.state = JobState.IO_ERROR
                 job.error_code = "IO_ERROR"
@@ -196,6 +228,15 @@ def process_one_job(
 
     job.state = JobState.SIGNING
     _tick()
+    return _sign_job(job, engine, profile, sign_input)
+
+
+def _sign_job(
+    job: SigningJob,
+    engine: LabSigner,
+    profile: SigningProfile,
+    sign_input: Path,
+) -> SigningJob:
     try:
         result = engine.sign(sign_input, job.output_path, profile=profile)
     except IoError as exc:

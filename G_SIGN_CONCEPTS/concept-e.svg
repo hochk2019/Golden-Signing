@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <title>E — G + Digital Node</title>
+  <path d="M650 230 A305 305 0 1 0 650 794"
+        fill="none" stroke="#D99A22" stroke-width="100" stroke-linecap="butt"/>
+  <rect x="500" y="464" width="200" height="92" rx="8" fill="#D99A22"/>
+  <path d="M480 560 C620 540 740 460 790 360"
+        fill="none" stroke="#A96F08" stroke-width="56" stroke-linecap="round"/>
+  <!-- diamond node = digital certificate, not UI check -->
+  <rect x="760" y="290" width="64" height="64" rx="8" transform="rotate(45 792 322)" fill="#F4C15D"/>
+</svg>

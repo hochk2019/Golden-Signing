@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <title>B — Open G (signature = G spine)</title>
+  <!-- Arc left+bottom of G -->
+  <path d="M640 220 A300 300 0 1 0 640 804"
+        fill="none" stroke="#D99A22" stroke-width="104" stroke-linecap="butt"/>
+  <!-- Right bar of G drawn as signature stroke ending in upward verification flick -->
+  <path d="M500 560 H720 C780 560 820 500 830 420"
+        fill="none" stroke="#A96F08" stroke-width="62" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M760 480 L830 360 L880 450" fill="none" stroke="#F4C15D" stroke-width="48"
+        stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

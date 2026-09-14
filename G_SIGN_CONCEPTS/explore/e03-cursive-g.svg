@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <title>Cursive g — loop is G; descender = signing gesture</title>
+
+  <!-- uppercase G gesture as cursive: entry, bowl, exit-up -->
+  <path d="M280 380
+           C320 240 520 200 620 280
+           C720 360 700 520 560 560
+           C480 580 420 560 400 520
+           C380 480 420 440 500 440
+           L700 440
+           C780 440 820 380 820 300"
+        fill="none" stroke="#D99A22" stroke-width="78"
+        stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M820 300 C840 240 880 220 920 250"
+        fill="none" stroke="#F4C15D" stroke-width="36" stroke-linecap="round"/>
+
+</svg>

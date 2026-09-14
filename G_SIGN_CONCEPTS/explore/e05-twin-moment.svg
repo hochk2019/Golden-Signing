@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <title>Twin-moment — first stroke = G, second = signing (motion)</title>
+
+  <path d="M660 240 A300 300 0 1 0 660 780"
+        fill="none" stroke="#D99A22" stroke-width="88" stroke-linecap="butt" opacity="1"/>
+  <path d="M520 560 H700"
+        fill="none" stroke="#D99A22" stroke-width="80" stroke-linecap="round"/>
+  <!-- second, lighter/faster stroke = the act of signing -->
+  <path d="M480 640 C620 700 760 620 820 420"
+        fill="none" stroke="#A96F08" stroke-width="36" stroke-linecap="round" opacity="0.95"/>
+  <path d="M780 460 L830 360 L880 430" fill="none" stroke="#F4C15D" stroke-width="28"
+        stroke-linecap="round" stroke-linejoin="round"/>
+
+</svg>

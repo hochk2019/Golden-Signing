@@ -38,10 +38,16 @@ def brand_mark_path() -> Path:
 
 
 def app_icon_path() -> Path:
+    """Windows title-bar / EXE icon: G-Sign first (not logistics mark)."""
     root = resource_root()
-    ico = root / "assets" / "branding" / "golden-app-icon.ico"
-    if ico.is_file():
-        return ico
+    candidates = (
+        root / "assets" / "branding" / "gsign" / "golden-signing.ico",
+        root / "assets" / "branding" / "gsign" / "golden-signing-256.png",
+        root / "assets" / "branding" / "golden-app-icon.ico",
+    )
+    for p in candidates:
+        if p.is_file():
+            return p
     return brand_mark_path()
 
 

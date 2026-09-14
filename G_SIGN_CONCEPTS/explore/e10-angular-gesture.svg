@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <title>Angular gesture — technical hex-G + diagonal verify cut</title>
+
+  <path d="M620 220 L780 320 L780 520 L620 620 L420 520 L420 320 Z"
+        fill="none" stroke="#D99A22" stroke-width="88" stroke-linejoin="round"/>
+  <path d="M620 420 L780 420" fill="none" stroke="#D99A22" stroke-width="72" stroke-linecap="round"/>
+  <path d="M360 760 L700 300 L820 200" fill="none" stroke="#A96F08" stroke-width="56"
+        stroke-linecap="round" stroke-linejoin="round"/>
+
+</svg>

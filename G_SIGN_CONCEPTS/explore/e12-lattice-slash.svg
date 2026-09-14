@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <title>Lattice-slash — cargo grid DNA; freeform sign = only organic line</title>
+
+  <rect x="140" y="140" width="744" height="744" rx="40" fill="#111827"/>
+  <!-- grid -->
+  <g stroke="#D99A22" stroke-width="14" opacity="0.35">
+    <path d="M280 180 V844 M420 180 V844 M560 180 V844 M700 180 V844"/>
+    <path d="M180 280 H844 M180 420 H844 M180 560 H844 M180 700 H844"/>
+  </g>
+  <!-- G -->
+  <path d="M640 300 A200 200 0 1 0 640 700" fill="none" stroke="#F4C15D" stroke-width="72" stroke-linecap="butt"/>
+  <rect x="520" y="460" width="140" height="68" fill="#F4C15D"/>
+  <!-- organic signature -->
+  <path d="M260 720 C420 800 620 760 780 480"
+        fill="none" stroke="#D99A22" stroke-width="44" stroke-linecap="round"/>
+
+</svg>

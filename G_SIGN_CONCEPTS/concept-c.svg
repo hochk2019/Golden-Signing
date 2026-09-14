@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <title>C — Golden Ribbon G</title>
+  <defs>
+    <linearGradient id="gold" x1="0.1" y1="0" x2="0.9" y2="1">
+      <stop offset="0%" stop-color="#F4C15D"/>
+      <stop offset="55%" stop-color="#D99A22"/>
+      <stop offset="100%" stop-color="#A96F08"/>
+    </linearGradient>
+  </defs>
+  <path d="M650 210 A310 310 0 1 0 650 814"
+        fill="none" stroke="url(#gold)" stroke-width="118" stroke-linecap="butt"/>
+  <path d="M480 560 H720 C790 560 830 500 840 410"
+        fill="none" stroke="url(#gold)" stroke-width="70" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M770 470 L840 350 L890 450" fill="none" stroke="#F4C15D" stroke-width="46"
+        stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <title>Seal-slash — G as stamp; slash cracks open the seal</title>
+
+  <circle cx="512" cy="512" r="360" fill="none" stroke="#111827" stroke-width="28"/>
+  <path d="M680 300 A240 240 0 1 0 680 724"
+        fill="none" stroke="#D99A22" stroke-width="96" stroke-linecap="butt"/>
+  <rect x="540" y="460" width="150" height="84" fill="#D99A22"/>
+  <path d="M300 780 L820 280" fill="none" stroke="#A96F08" stroke-width="52"
+        stroke-linecap="round"/>
+
+</svg>

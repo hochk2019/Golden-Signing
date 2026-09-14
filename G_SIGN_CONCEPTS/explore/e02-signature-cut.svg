@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <title>Signature-cut G — the cut IS the G opening</title>
+
+  <!-- solid G ring -->
+  <path d="M700 300 A280 280 0 1 0 700 724"
+        fill="none" stroke="#D99A22" stroke-width="110" stroke-linecap="butt"/>
+  <!-- bar -->
+  <rect x="540" y="460" width="170" height="90" fill="#D99A22"/>
+  <!-- signature slash replaces/apertures the G — cuts through right side -->
+  <path d="M420 760 C560 700 700 620 860 360"
+        fill="none" stroke="#A96F08" stroke-width="64"
+        stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- verify tip continues slash -->
+  <path d="M780 480 L860 340 L910 450" fill="none" stroke="#F4C15D"
+        stroke-width="44" stroke-linecap="round" stroke-linejoin="round"/>
+
+</svg>
