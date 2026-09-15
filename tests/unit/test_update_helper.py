@@ -27,7 +27,7 @@ def test_helper_script_has_log_and_wait(tmp_path: Path) -> None:
 def test_installer_helper_runs_inno_silent_and_relaunches(tmp_path: Path) -> None:
     upd = tmp_path / "updates"
     install = tmp_path / "Programs" / "GoldenSign"
-    installer = upd / "installer-v1.1.7.exe"
+    installer = upd / "installer-v1.1.8.exe"
     ps1 = write_installer_helper(upd, install, installer)
     text = ps1.read_text(encoding="utf-8")
     assert "/VERYSILENT" in text

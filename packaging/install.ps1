@@ -5,7 +5,7 @@
 $ErrorActionPreference = "Stop"
 $AppName = "Golden Sign"
 $Publisher = "HOC HK"
-$Version = "1.1.7"
+$Version = "1.1.8"
 $InstallDir = Join-Path $env:LOCALAPPDATA "Programs\GoldenSign"
 $ExeName = "GoldenSign.exe"
 $Payload = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -19,6 +19,11 @@ if (-not (Test-Path (Join-Path $Payload $ExeName))) {
 # Close running instance
 Get-Process -Name "GoldenSign" -ErrorAction SilentlyContinue | ForEach-Object {
     try { $_.CloseMainWindow() | Out-Null; Start-Sleep -Milliseconds 400; $_.Kill() } catch {}
+}
+
+if (Test-Path $InstallDir) {
+    Remove-Item -LiteralPath (Join-Path $InstallDir "_internal") -Recurse -Force -ErrorAction SilentlyContinue
+    Remove-Item -LiteralPath (Join-Path $InstallDir $ExeName) -Force -ErrorAction SilentlyContinue
 }
 
 New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null

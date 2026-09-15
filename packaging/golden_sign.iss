@@ -4,7 +4,7 @@
 ; Requires: Inno Setup 6, dist\GoldenSign\ prepared by packaging\build_release.ps1
 
 #define MyAppName "Golden Sign"
-#define MyAppVersion "1.1.7"
+#define MyAppVersion "1.1.8"
 #define MyAppPublisher "HOC HK"
 #define MyAppExeName "GoldenSign.exe"
 #define MyAppURL "https://github.com/hochk2019/Golden-Signing"
@@ -40,6 +40,10 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Tasks]
 Name: "startup"; Description: "Khởi động cùng Windows (không khuyến nghị)"; GroupDescription: "Tùy chọn khác:"; Flags: unchecked
+
+[InstallDelete]
+Type: filesandordirs; Name: "{app}\_internal"
+Type: files; Name: "{app}\GoldenSign.exe"
 
 [Files]
 Source: "{#PayloadDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
