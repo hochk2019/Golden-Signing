@@ -6,7 +6,11 @@ import subprocess
 import sys
 from pathlib import Path
 
-from golden_signing.updater.runtime import launch_update_helper, write_update_helper
+from golden_signing.updater.runtime import (
+    launch_update_helper,
+    write_installer_helper,
+    write_update_helper,
+)
 
 
 def test_helper_script_has_log_and_wait(tmp_path: Path) -> None:
@@ -18,6 +22,18 @@ def test_helper_script_has_log_and_wait(tmp_path: Path) -> None:
     assert "apply_update.log" in text or "Log" in text
     assert "Get-Process" in text
     assert "Copy-Item" in text
+
+
+def test_installer_helper_runs_inno_silent_and_relaunches(tmp_path: Path) -> None:
+    upd = tmp_path / "updates"
+    install = tmp_path / "Programs" / "GoldenSign"
+    installer = upd / "installer-v1.1.7.exe"
+    ps1 = write_installer_helper(upd, install, installer)
+    text = ps1.read_text(encoding="utf-8")
+    assert "/VERYSILENT" in text
+    assert "/DIR=" in text
+    assert "Start-Process -FilePath $installer" in text
+    assert "Start-Process -FilePath $newExe" in text
 
 
 def test_launch_uses_create_no_window(tmp_path: Path, monkeypatch) -> None:  # noqa: ANN001

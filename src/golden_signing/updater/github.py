@@ -28,12 +28,19 @@ class UpdateInfo:
     body: str
     zip_name: str | None
     zip_url: str | None
+    installer_name: str | None = None
+    installer_url: str | None = None
     checksums: dict[str, str] = field(default_factory=dict)
 
     def zip_sha256(self) -> str | None:
         if not self.zip_name:
             return None
         return self.checksums.get(self.zip_name)
+
+    def installer_sha256(self) -> str | None:
+        if not self.installer_name:
+            return None
+        return self.checksums.get(self.installer_name)
 
 
 def _default_get(url: str, timeout: float) -> bytes:
@@ -54,12 +61,15 @@ def _default_get(url: str, timeout: float) -> bytes:
 
 
 def _pick_zip(assets: list[dict]) -> tuple[str | None, str | None]:
-    """Return (name, browser_download_url) preferring win64 GoldenSigning zip."""
+    """Return (name, browser_download_url) preferring win64 Golden Sign zip."""
     zips = [
         a
         for a in assets
         if str(a.get("name", "")).lower().endswith(".zip")
-        and "goldensigning" in str(a.get("name", "")).lower()
+        and (
+            "goldensigning" in str(a.get("name", "")).lower()
+            or "goldensign" in str(a.get("name", "")).lower()
+        )
     ]
     if not zips:
         zips = [a for a in assets if str(a.get("name", "")).lower().endswith(".zip")]
@@ -67,6 +77,26 @@ def _pick_zip(assets: list[dict]) -> tuple[str | None, str | None]:
         return None, None
     win = [a for a in zips if "win64" in str(a.get("name", "")).lower()]
     chosen = win[0] if win else zips[0]
+    return str(chosen.get("name") or None), str(chosen.get("browser_download_url") or None)
+
+
+def _pick_installer(assets: list[dict]) -> tuple[str | None, str | None]:
+    """Return (name, browser_download_url) for the Inno setup asset."""
+    installers = [
+        a
+        for a in assets
+        if str(a.get("name", "")).lower().endswith(".exe")
+        and "setup" in str(a.get("name", "")).lower()
+        and (
+            "goldensigning" in str(a.get("name", "")).lower()
+            or "goldensign" in str(a.get("name", "")).lower()
+        )
+    ]
+    if not installers:
+        installers = [a for a in assets if str(a.get("name", "")).lower().endswith(".exe")]
+    if not installers:
+        return None, None
+    chosen = installers[0]
     return str(chosen.get("name") or None), str(chosen.get("browser_download_url") or None)
 
 
@@ -85,6 +115,7 @@ def parse_release_json(payload: bytes | str) -> UpdateInfo:
     if not isinstance(assets, list):
         assets = []
     zip_name, zip_url = _pick_zip(assets)
+    installer_name, installer_url = _pick_installer(assets)
     return UpdateInfo(
         version=version,
         tag=tag,
@@ -92,6 +123,8 @@ def parse_release_json(payload: bytes | str) -> UpdateInfo:
         body=str(data.get("body") or ""),
         zip_name=zip_name,
         zip_url=zip_url,
+        installer_name=installer_name,
+        installer_url=installer_url,
         checksums={},  # filled by caller after downloading checksums.txt
     )
 

@@ -832,13 +832,16 @@ class MainWindow(QMainWindow):
         self._update_thread.start()
 
     def _on_auto_update_result(self, result: object) -> None:
-        from golden_signing.ui.update_offer_dialog import offer_if_newer
+        from golden_signing.ui.update_offer_dialog import is_snoozed, offer_if_newer
 
         ok = bool(getattr(result, "ok", False))
         newer = bool(getattr(result, "newer", False))
         if not ok or not newer:
             return
-        did = offer_if_newer(result, self)  # type: ignore[arg-type]
+        info = getattr(result, "info", None)
+        if info is not None and is_snoozed(info, self._settings):
+            return
+        did = offer_if_newer(result, self, self._settings)  # type: ignore[arg-type]
         if did:
             # Staged swap + relaunch already started — exit this process.
             self.close()

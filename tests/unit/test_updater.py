@@ -11,9 +11,11 @@ from pathlib import Path
 import pytest
 
 from golden_signing.updater.apply import (
+    InstallerResult,
     UpdateApplyError,
     backup_app_dir,
     restore_previous,
+    stage_installer,
     stage_update,
 )
 from golden_signing.updater.github import (
@@ -39,20 +41,26 @@ def test_parse_release_json_picks_win64_zip() -> None:
         "body": "notes",
         "assets": [
             {
-                "name": "GoldenSigning-1.4.0-linux.zip",
+                "name": "GoldenSign-1.4.0-linux.zip",
                 "browser_download_url": "https://example/linux.zip",
             },
             {
-                "name": "GoldenSigning-1.4.0-win64.zip",
+                "name": "GoldenSign-1.4.0-win64.zip",
                 "browser_download_url": "https://example/win64.zip",
+            },
+            {
+                "name": "GoldenSign-Setup-1.4.0.exe",
+                "browser_download_url": "https://example/setup.exe",
             },
             {"name": "checksums.txt", "browser_download_url": "https://example/c.txt"},
         ],
     }
     info = parse_release_json(json.dumps(payload))
     assert info.version.raw == "v1.4.0"
-    assert info.zip_name == "GoldenSigning-1.4.0-win64.zip"
+    assert info.zip_name == "GoldenSign-1.4.0-win64.zip"
     assert info.zip_url == "https://example/win64.zip"
+    assert info.installer_name == "GoldenSign-Setup-1.4.0.exe"
+    assert info.installer_url == "https://example/setup.exe"
 
 
 def test_fetch_latest_release_uses_injected_get() -> None:
@@ -162,6 +170,32 @@ def test_stage_update_requires_hash(tmp_path: Path) -> None:
             update_root=tmp_path / "u",
             download=download,  # type: ignore[arg-type]
         )
+
+
+def test_stage_installer_verifies_and_backs_up(tmp_path: Path) -> None:
+    installer = tmp_path / "setup.exe"
+    installer.write_bytes(b"installer")
+    digest = hashlib.sha256(b"installer").hexdigest()
+    app_dir = tmp_path / "app"
+    app_dir.mkdir()
+    (app_dir / "old.txt").write_text("old", encoding="utf-8")
+
+    def download(url: str, dest: Path) -> Path:
+        dest.write_bytes(installer.read_bytes())
+        return dest
+
+    result = stage_installer(
+        installer_url="https://example/setup.exe",
+        expected_sha256=digest,
+        version_tag="v9.9.9",
+        app_dir=app_dir,
+        update_root=tmp_path / "updates",
+        download=download,  # type: ignore[arg-type]
+    )
+    assert isinstance(result, InstallerResult)
+    assert result.installer_path.is_file()
+    assert result.backup_dir is not None
+    assert (result.backup_dir / "old.txt").read_text(encoding="utf-8") == "old"
 
 
 def test_backup_and_restore_previous(tmp_path: Path) -> None:

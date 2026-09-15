@@ -2,8 +2,10 @@
 
 from golden_signing.updater.apply import (
     ApplyResult,
+    InstallerResult,
     UpdateApplyError,
     default_update_dir,
+    stage_installer,
     stage_update,
 )
 from golden_signing.updater.check import (
@@ -21,6 +23,7 @@ __all__ = [
     "ApplyResult",
     "CheckResult",
     "DEFAULT_UPDATE_REPO",
+    "InstallerResult",
     "UpdateApplyError",
     "UpdateInfo",
     "UpdateSourceError",
@@ -35,6 +38,7 @@ __all__ = [
     "parse_version",
     "relaunch_app",
     "resolve_repo",
+    "stage_installer",
     "stage_update",
     "verify_file_sha256",
 ]

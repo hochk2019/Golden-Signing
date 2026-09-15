@@ -5,7 +5,7 @@ $ErrorActionPreference = "Stop"
 $Root = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
 Set-Location $Root
 $Py = Join-Path $Root ".venv\Scripts\python.exe"
-$Version = "1.1.6"
+$Version = "1.1.7"
 $ZipName = "GoldenSign-$Version-win64.zip"
 $SetupName = "GoldenSign-Setup-$Version.exe"
 
@@ -31,6 +31,11 @@ pause
 
 $OutDir = Join-Path $Root "dist\release"
 New-Item -ItemType Directory -Force -Path $OutDir | Out-Null
+Get-ChildItem $OutDir -File | Where-Object {
+    $_.Name -like "GoldenSign-*.zip" -or
+    $_.Name -like "GoldenSign-Setup-*.exe" -or
+    $_.Name -eq "checksums.txt"
+} | Remove-Item -Force
 
 Write-Host "=== Portable zip ==="
 $ZipPath = Join-Path $OutDir $ZipName

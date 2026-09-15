@@ -11,6 +11,7 @@ __all__ = [
     "is_frozen",
     "launch_update_helper",
     "relaunch_app",
+    "write_installer_helper",
     "write_update_helper",
 ]
 
@@ -96,6 +97,66 @@ if (Test-Path -LiteralPath $staged) {{
 }} else {{
     Log 'ERROR: staged missing'
     exit 1
+}}
+
+$newExe = Join-Path $install $exeName
+if (Test-Path -LiteralPath $newExe) {{
+    Start-Process -FilePath $newExe
+    Log 'relaunched'
+}} else {{
+    Log 'ERROR: new exe missing'
+    exit 1
+}}
+"""
+    ps1.write_text(content, encoding="utf-8")
+    return ps1
+
+
+def write_installer_helper(
+    update_root: Path,
+    install_dir: Path,
+    installer_path: Path,
+    *,
+    exe_name: str = "GoldenSign.exe",
+    log_name: str = "apply_update.log",
+) -> Path:
+    """Write a helper that runs the verified Inno installer after the app exits."""
+    update_root = Path(update_root)
+    update_root.mkdir(parents=True, exist_ok=True)
+    log_path = update_root / log_name
+    ps1 = update_root / "apply_installer_update.ps1"
+
+    def q(p: Path) -> str:
+        return str(p).replace("'", "''")
+
+    process_name = Path(exe_name).stem
+    content = f"""$ErrorActionPreference = 'Continue'
+$log = '{q(log_path)}'
+function Log($m) {{ Add-Content -LiteralPath $log -Value ((Get-Date -Format o) + ' ' + $m) }}
+Log 'installer helper start'
+$install = '{q(install_dir)}'
+$installer = '{q(installer_path)}'
+$exeName = '{q(exe_name)}'
+$procName = '{q(process_name)}'
+
+for ($i = 0; $i -lt 200; $i++) {{
+    $p = Get-Process -Name $procName -ErrorAction SilentlyContinue
+    if (-not $p) {{ Log 'process exited'; break }}
+    Start-Sleep -Milliseconds 150
+}}
+Start-Sleep -Milliseconds 400
+
+if (-not (Test-Path -LiteralPath $installer)) {{
+    Log 'ERROR: installer missing'
+    exit 1
+}}
+
+$args = @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/CLOSEAPPLICATIONS', '/DIR="' + $install + '"')
+Log ('running installer: ' + ($args -join ' '))
+$p = Start-Process -FilePath $installer -ArgumentList $args -Wait -PassThru
+Log ('installer exit code: ' + $p.ExitCode)
+if ($p.ExitCode -ne 0) {{
+    exit $p.ExitCode
 }}
 
 $newExe = Join-Path $install $exeName

@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import html
+import time
 from pathlib import Path
 
-from PySide6.QtCore import QThread, QUrl, Signal
+from PySide6.QtCore import QSettings, QThread, QUrl, Signal
 from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import (
     QDialog,
@@ -23,6 +24,8 @@ from golden_signing.updater.check import CheckResult
 from golden_signing.updater.github import UpdateInfo
 
 __all__ = ["StageWorker", "UpdateCheckThread", "UpdateOfferDialog"]
+
+_SNOOZE_SECONDS = 24 * 60 * 60
 
 
 def _fmt_mb(n: int) -> str:
@@ -43,7 +46,7 @@ class UpdateCheckThread(QThread):
 
 
 class StageWorker(QThread):
-    """Download + SHA256 verify + extract on a background thread."""
+    """Download + SHA256 verify on a background thread."""
 
     progress = Signal(int, int)  # done, total (total may be 0)
     finished_ok = Signal(object)  # ApplyResult
@@ -53,31 +56,44 @@ class StageWorker(QThread):
         self,
         *,
         zip_url: str,
+        installer_url: str | None,
         expected_sha256: str,
         version_tag: str,
         app_dir: Path | None,
+        prefer_installer: bool = False,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
         self._zip_url = zip_url
+        self._installer_url = installer_url
         self._sha = expected_sha256
         self._tag = version_tag
         self._app_dir = app_dir
+        self._prefer_installer = prefer_installer
 
     def run(self) -> None:
         try:
-            from golden_signing.updater.apply import stage_update
+            from golden_signing.updater.apply import stage_installer, stage_update
 
             def _cb(done: int, total: int) -> None:
                 self.progress.emit(done, total)
 
-            result = stage_update(
-                zip_url=self._zip_url,
-                expected_sha256=self._sha,
-                version_tag=self._tag,
-                app_dir=self._app_dir,
-                on_download_progress=_cb,
-            )
+            if self._prefer_installer and self._installer_url:
+                result = stage_installer(
+                    installer_url=self._installer_url,
+                    expected_sha256=self._sha,
+                    version_tag=self._tag,
+                    app_dir=self._app_dir,
+                    on_download_progress=_cb,
+                )
+            else:
+                result = stage_update(
+                    zip_url=self._zip_url,
+                    expected_sha256=self._sha,
+                    version_tag=self._tag,
+                    app_dir=self._app_dir,
+                    on_download_progress=_cb,
+                )
             self.finished_ok.emit(result)
         except Exception as exc:  # noqa: BLE001
             self.failed.emit(str(exc))
@@ -91,6 +107,7 @@ class UpdateOfferDialog(QDialog):
         info: UpdateInfo,
         local_version: str,
         parent: QWidget | None = None,
+        settings: QSettings | None = None,
     ) -> None:
         super().__init__(parent)
         from golden_signing.ui.theme import apply_window_icon
@@ -102,6 +119,7 @@ class UpdateOfferDialog(QDialog):
         self._info = info
         self._local_version = local_version
         self._did_update = False
+        self._settings = settings
         self._worker: StageWorker | None = None
 
         root = QVBoxLayout(self)
@@ -171,15 +189,22 @@ class UpdateOfferDialog(QDialog):
     def _on_later(self) -> None:
         if self._worker is not None and self._worker.isRunning():
             return
+        if self._settings is not None:
+            self._settings.setValue("update/skipTag", self._info.tag)
+            self._settings.setValue("update/skipUntil", str(int(time.time() + _SNOOZE_SECONDS)))
         self.reject()
 
     def _on_update(self) -> None:
         info = self._info
-        if not info.zip_url:
-            self._status.setText("Release không có zip để tải — dùng “Mở GitHub”.")
+        from golden_signing.updater.runtime import app_install_dir, is_frozen
+
+        prefer_installer = is_frozen() and bool(info.installer_url)
+        artifact_url = info.installer_url if prefer_installer else info.zip_url
+        expected_sha = info.installer_sha256() if prefer_installer else info.zip_sha256()
+        if not artifact_url:
+            self._status.setText("Release không có installer/zip để tải — dùng “Mở GitHub”.")
             self._status.show()
             return
-        from golden_signing.updater.runtime import app_install_dir, is_frozen
 
         install_dir = app_install_dir()
         self._set_busy(True)
@@ -189,10 +214,12 @@ class UpdateOfferDialog(QDialog):
         self._status.show()
 
         self._worker = StageWorker(
-            zip_url=info.zip_url,
-            expected_sha256=info.zip_sha256() or "",
+            zip_url=info.zip_url or "",
+            installer_url=info.installer_url,
+            expected_sha256=expected_sha or "",
             version_tag=info.tag,
             app_dir=install_dir if is_frozen() else None,
+            prefer_installer=prefer_installer,
             parent=self,
         )
         self._worker.progress.connect(self._on_progress)
@@ -217,12 +244,32 @@ class UpdateOfferDialog(QDialog):
             app_install_dir,
             is_frozen,
             launch_update_helper,
+            write_installer_helper,
             write_update_helper,
         )
 
         extract_dir = getattr(result, "extract_dir", None)
+        installer_path = getattr(result, "installer_path", None)
         zip_path = getattr(result, "zip_path", None)
         install_dir = app_install_dir() if is_frozen() else None
+
+        if is_frozen() and install_dir is not None and installer_path is not None:
+            update_root = Path(installer_path).parent
+            self._status.setText("Đang chuẩn bị cài cập nhật — app sẽ đóng và mở lại…")
+            self._progress.setRange(0, 0)
+            try:
+                helper = write_installer_helper(
+                    update_root,
+                    install_dir,
+                    Path(installer_path),
+                )
+                launch_update_helper(helper)
+            except Exception as exc:  # noqa: BLE001
+                self._on_fail(str(exc))
+                return
+            self._did_update = True
+            self.accept()
+            return
 
         if is_frozen() and install_dir is not None and extract_dir is not None:
             # Cannot rename/replace install dir while this EXE is running
@@ -271,10 +318,25 @@ def app_install_dir_frozen() -> Path | None:
 def offer_if_newer(
     result: CheckResult,
     parent: QWidget | None = None,
+    settings: QSettings | None = None,
 ) -> bool:
     """Show offer dialog when result.ok and newer. True if user completed update."""
     if not result.ok or not result.newer or result.info is None:
         return False
-    dlg = UpdateOfferDialog(result.info, result.local.raw, parent)
+    dlg = UpdateOfferDialog(result.info, result.local.raw, parent, settings=settings)
     dlg.exec()
     return dlg.did_update
+
+
+def is_snoozed(info: UpdateInfo, settings: QSettings | None, now: float | None = None) -> bool:
+    """True when the user chose 'Để sau' for this tag and the snooze window is active."""
+    if settings is None:
+        return False
+    skip_tag = str(settings.value("update/skipTag", "") or "")
+    if skip_tag != info.tag:
+        return False
+    try:
+        skip_until = int(str(settings.value("update/skipUntil", "0") or "0"))
+    except ValueError:
+        return False
+    return skip_until > int(time.time() if now is None else now)

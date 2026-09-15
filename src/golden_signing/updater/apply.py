@@ -14,12 +14,14 @@ from golden_signing.updater.verify import file_sha256, verify_file_sha256
 
 __all__ = [
     "ApplyResult",
+    "InstallerResult",
     "UpdateApplyError",
     "default_update_dir",
     "download_file",
     "extract_zip",
     "backup_app_dir",
     "restore_previous",
+    "stage_installer",
     "stage_update",
 ]
 
@@ -32,6 +34,12 @@ class UpdateApplyError(RuntimeError):
 class ApplyResult:
     zip_path: Path
     extract_dir: Path
+    backup_dir: Path | None
+
+
+@dataclass(frozen=True, slots=True)
+class InstallerResult:
+    installer_path: Path
     backup_dir: Path | None
 
 
@@ -168,6 +176,49 @@ def stage_update(
         json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8"
     )
     return ApplyResult(zip_path=zip_path, extract_dir=extract_dir, backup_dir=backup)
+
+
+def stage_installer(
+    *,
+    installer_url: str,
+    expected_sha256: str,
+    version_tag: str,
+    app_dir: Path | None,
+    update_root: Path | None = None,
+    download: Callable[[str, Path], Path] | None = None,
+    on_download_progress: Callable[[int, int], None] | None = None,
+) -> InstallerResult:
+    """Download and verify the Inno installer asset, ready for an external helper."""
+    root = update_root or default_update_dir()
+    root.mkdir(parents=True, exist_ok=True)
+    safe_tag = "".join(c if c.isalnum() or c in "._-" else "_" for c in version_tag)
+    installer_path = root / f"installer-{safe_tag}.exe"
+
+    if download is not None:
+        download(installer_url, installer_path)
+    else:
+        download_file(installer_url, installer_path, on_progress=on_download_progress)
+
+    if not expected_sha256:
+        raise UpdateApplyError("thiếu SHA256 trên release — không cài")
+    if not verify_file_sha256(installer_path, expected_sha256):
+        actual = file_sha256(installer_path)
+        installer_path.unlink(missing_ok=True)
+        raise UpdateApplyError(
+            f"SHA256 không khớp (kỳ vọng {expected_sha256[:12]}…, nhận {actual[:12]}…)"
+        )
+
+    backup = backup_app_dir(app_dir, root) if app_dir is not None else None
+    meta = {
+        "version": version_tag,
+        "installer": installer_path.name,
+        "sha256": expected_sha256,
+        "app_dir": str(app_dir) if app_dir else "",
+    }
+    (root / "staged-installer.json").write_text(
+        json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+    return InstallerResult(installer_path=installer_path, backup_dir=backup)
 
 
 def _tmp_marker(root: Path) -> Path:

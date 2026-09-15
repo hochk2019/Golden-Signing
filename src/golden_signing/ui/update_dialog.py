@@ -75,6 +75,7 @@ class UpdateCheckDialog(QDialog):
         self._zip_name: str | None = None
         self._sha256: str | None = None
         self._tag: str | None = None
+        self._last_result: object | None = None
 
     def _repo(self) -> str:
         from golden_signing.updater.check import resolve_repo
@@ -90,6 +91,7 @@ class UpdateCheckDialog(QDialog):
         self._detail.hide()
         self._open_btn.hide()
         self._stage_btn.hide()
+        self._last_result = None
         try:
             result = check_for_update(repo)
         finally:
@@ -111,13 +113,18 @@ class UpdateCheckDialog(QDialog):
             self._status.setText(f"Đã là bản mới nhất (local {result.local.raw}, GitHub {info.tag}).")
             return
 
+        self._last_result = result
         self._status.setText(f"Có bản mới: {info.tag} (bạn đang dùng {result.local.raw}).")
-        if info.zip_name:
-            self._detail.setText(f"Asset: {info.zip_name}")
+        asset_name = info.installer_name or info.zip_name
+        if asset_name:
+            self._detail.setText(f"Asset: {asset_name}")
             self._detail.show()
+            self._stage_btn.setText("Cập nhật ngay")
             self._stage_btn.setVisible(True)
         else:
-            self._detail.setText("Release không có zip Windows — dùng “Mở trang Release” để tải tay.")
+            self._detail.setText(
+                "Release không có installer/zip Windows — dùng “Mở trang Release” để tải tay."
+            )
             self._detail.show()
 
     def _on_open_release(self) -> None:
@@ -129,9 +136,15 @@ class UpdateCheckDialog(QDialog):
         QDesktopServices.openUrl(QUrl(self._release_url))
 
     def _on_stage(self) -> None:
+        from golden_signing.ui.update_offer_dialog import offer_if_newer
         from golden_signing.updater.apply import UpdateApplyError, stage_update
         from golden_signing.updater.check import check_for_update
 
+        if self._last_result is not None:
+            did_update = offer_if_newer(self._last_result, self, self._settings)  # type: ignore[arg-type]
+            if did_update:
+                self.accept()
+            return
         if not self._zip_url or not self._tag:
             return
         expected = self._sha256 or ""

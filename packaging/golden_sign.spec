@@ -85,7 +85,17 @@ a = Analysis(
     pathex=[str(root / "src")],
     binaries=[],
     datas=[
-        (str(root / "assets" / "branding"), "assets/branding"),
+        (str(root / "assets" / "branding" / "golden-mark-ui.png"), "assets/branding"),
+        (str(root / "assets" / "branding" / "golden-mark.png"), "assets/branding"),
+        (str(root / "assets" / "branding" / "golden-app-icon.ico"), "assets/branding"),
+        (
+            str(root / "assets" / "branding" / "gsign" / "golden-signing.ico"),
+            "assets/branding/gsign",
+        ),
+        (
+            str(root / "assets" / "branding" / "gsign" / "golden-signing-256.png"),
+            "assets/branding/gsign",
+        ),
         (str(root / "assets" / "ui"), "assets/ui"),
     ],
     hiddenimports=[
@@ -137,6 +147,7 @@ _DROP_DATA = (
     "/PySide6/Qt/translations",
     "/qml/",
     "/Qt/qml",
+    "/tzdata/zoneinfo/",
 )
 
 

@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import golden_signing
-from golden_signing.batch.state import JobState, SigningJob, TERMINAL_STATES
+from golden_signing.batch.state import TERMINAL_STATES, JobState, SigningJob
 from golden_signing.security.integrity import atomic_write_bytes
 from golden_signing.signing import (
     NON_RETRYABLE_CODES,
@@ -17,7 +17,7 @@ from golden_signing.signing import (
 
 
 def test_version() -> None:
-    assert golden_signing.__version__ == "1.1.6"
+    assert golden_signing.__version__ == "1.1.7"
 
 
 def test_signing_job_terminal() -> None:

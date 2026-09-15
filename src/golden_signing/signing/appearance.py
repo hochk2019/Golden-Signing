@@ -182,7 +182,9 @@ DEFAULT_LOGO_NAME = "golden-mark.png"
 
 
 def default_logo_path() -> Path | None:
-    root = Path(__file__).resolve().parents[3]
+    from golden_signing.storage.app_paths import resource_root
+
+    root = resource_root()
     p = root / "assets" / "branding" / DEFAULT_LOGO_NAME
     return p if p.is_file() else None
 
