@@ -4,7 +4,7 @@
 ; Requires: Inno Setup 6, dist\GoldenSign\ prepared by packaging\build_release.ps1
 
 #define MyAppName "Golden Sign"
-#define MyAppVersion "1.1.10"
+#define MyAppVersion "1.1.11"
 #define MyAppPublisher "HOC HK"
 #define MyAppExeName "GoldenSign.exe"
 #define MyAppURL "https://github.com/hochk2019/Golden-Signing"
