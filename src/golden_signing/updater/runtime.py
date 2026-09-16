@@ -151,12 +151,25 @@ if (-not (Test-Path -LiteralPath $installer)) {{
     exit 1
 }}
 
-$args = @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/CLOSEAPPLICATIONS', '/DIR="' + $install + '"')
-Log ('running installer: ' + ($args -join ' '))
-$p = Start-Process -FilePath $installer -ArgumentList $args -Wait -PassThru
+# Inno remembers install dir via AppId registry — do NOT pass /DIR with
+# embedded quotes (PowerShell Start-Process mangles them → exit code 3).
+# /CLOSEAPPLICATIONS is a safety net; app should already be exited.
+$argList = '/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /CLOSEAPPLICATIONS'
+Log ('running installer: ' + $argList)
+$p = Start-Process -FilePath $installer -ArgumentList $argList -Wait -PassThru
 Log ('installer exit code: ' + $p.ExitCode)
 if ($p.ExitCode -ne 0) {{
+    Log 'ERROR: installer failed'
     exit $p.ExitCode
+}}
+
+$ws = New-Object -ComObject WScript.Shell
+$lnk = Join-Path ([Environment]::GetFolderPath('Desktop')) 'Golden Sign.lnk'
+if (Test-Path -LiteralPath $lnk) {{
+    $sc = $ws.CreateShortcut($lnk)
+    $sc.IconLocation = (Join-Path $install $exeName)
+    $sc.Save()
+    Log 'desktop shortcut icon refreshed'
 }}
 
 $newExe = Join-Path $install $exeName

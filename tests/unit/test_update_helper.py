@@ -31,7 +31,8 @@ def test_installer_helper_runs_inno_silent_and_relaunches(tmp_path: Path) -> Non
     ps1 = write_installer_helper(upd, install, installer)
     text = ps1.read_text(encoding="utf-8")
     assert "/VERYSILENT" in text
-    assert "/DIR=" in text
+    # Do NOT pass /DIR — Inno remembers via AppId; embedded quotes broke it
+    assert "/DIR=" not in text
     assert "Start-Process -FilePath $installer" in text
     assert "Start-Process -FilePath $newExe" in text
 
