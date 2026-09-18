@@ -539,22 +539,24 @@ class MainWindow(QMainWindow):
         extra = ("\n\n" + "\n".join(failed_msgs[:5])) if failed_msgs else ""
         title = "Golden Sign"
         out_dir = batch._output_dir if hasattr(batch, "_output_dir") else ""  # noqa: SLF001
-        note_ecus = (
-            "\n\nCửa sổ ECUS “Lấy phản hồi trình ký” là phần mềm khác — "
-            "không phải kết quả ký của Golden Sign."
-        )
+        if any("more than one private key" in (j.message or "").lower() for j in result.jobs):
+            extra += (
+                "\n\nGợi ý: token có nhiều private key — "
+                "Golden Sign sẽ chọn key khớp chứng thư. "
+                "Nếu vẫn lỗi, Quét lại token và chọn đúng CKS trên token."
+            )
         if result.failed:
             QMessageBox.warning(
                 self,
                 title,
                 f"Hoàn tất: {result.success} thành công · {result.failed} lỗi · "
-                f"{result.cancelled} hủy\nThư mục: {out_dir}{extra}{note_ecus}",
+                f"{result.cancelled} hủy\nThư mục: {out_dir}{extra}",
             )
         else:
             QMessageBox.information(
                 self,
                 title,
-                f"Hoàn tất: {result.success} thành công · 0 lỗi\nThư mục: {out_dir}{note_ecus}",
+                f"Hoàn tất: {result.success} thành công · 0 lỗi\nThư mục: {out_dir}",
             )
 
     def _sample_pdf_for_position(self) -> Path | None:
@@ -1023,18 +1025,20 @@ class MainWindow(QMainWindow):
         session = None
         asn1_cert = None
         used_dll = None
+        used_key_id = None
         last_err: Exception | str | None = None
         tried: list[str] = []
         try:
             for dll in dlls:
                 tried.append(f"{pe_machine_label(dll)}:{dll.name}")
                 try:
-                    session, asn1_cert = TPS.open_session_with_pin(
+                    session, asn1_cert, key_id = TPS.open_session_with_pin(
                         dll,
                         pin,
                         cert_serial=serial or None,
                     )
                     used_dll = dll
+                    used_key_id = key_id
                     break
                 except Exception as exc:  # noqa: BLE001
                     last_err = exc
@@ -1045,8 +1049,9 @@ class MainWindow(QMainWindow):
                 for dll in dlls:
                     tried.append(f"{pe_machine_label(dll)}:{dll.name}(no-serial)")
                     try:
-                        session, asn1_cert = TPS.open_session_with_pin(dll, pin)
+                        session, asn1_cert, key_id = TPS.open_session_with_pin(dll, pin)
                         used_dll = dll
+                        used_key_id = key_id
                         break
                     except Exception as exc:  # noqa: BLE001
                         last_err = exc
@@ -1089,7 +1094,7 @@ class MainWindow(QMainWindow):
             return None
 
         signer = TokenPdfSigner(used_dll)
-        signer.bind_session(session, asn1_cert)
+        signer.bind_session(session, asn1_cert, key_id=used_key_id)
         signer.cert_info = chosen
         if fp:
             signer.certificate_fingerprint_sha256 = fp

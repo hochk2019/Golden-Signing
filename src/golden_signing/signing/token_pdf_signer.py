@@ -59,6 +59,7 @@ class TokenPdfSigner:
         self._cert_label = cert_label
         self._signing_cert = signing_cert
         self._session = session
+        self._key_id: bytes | None = None
         self.certificate_fingerprint_sha256 = ""
         self.cert_info: object | None = None
         self.text_color: tuple[float, float, float] | None = None
@@ -127,14 +128,92 @@ class TokenPdfSigner:
         return out
 
     @staticmethod
+    def _find_private_key_id(session: Any, signing_cert: Any) -> bytes | None:
+        """Pick CKA_ID of the private key that belongs to signing_cert (CA2 tokens often have 2+ keys)."""
+        import pkcs11
+        from asn1crypto import x509 as asn1_x509
+
+        try:
+            certs = list(
+                session.get_objects({pkcs11.Attribute.CLASS: pkcs11.ObjectClass.CERTIFICATE})
+            )
+            keys = list(
+                session.get_objects({pkcs11.Attribute.CLASS: pkcs11.ObjectClass.PRIVATE_KEY})
+            )
+        except Exception:  # noqa: BLE001
+            return None
+        if not keys:
+            return None
+
+        target_der = None
+        try:
+            target_der = signing_cert.dump()
+        except Exception:  # noqa: BLE001
+            target_der = None
+        cert_obj_id: bytes | None = None
+        cert_modulus = None
+        if target_der is not None:
+            try:
+                cert = asn1_x509.Certificate.load(target_der)
+                try:
+                    spki = cert["tbs_certificate"]["subject_public_key_info"]
+                    if spki.algorithm == "rsa":
+                        cert_modulus = int(spki["public_key"].native["modulus"])
+                except Exception:  # noqa: BLE001
+                    cert_modulus = None
+            except Exception:  # noqa: BLE001
+                cert_modulus = None
+
+        for obj in certs:
+            try:
+                der = bytes(obj[pkcs11.Attribute.VALUE])
+                if target_der is not None and der == target_der:
+                    try:
+                        cert_obj_id = bytes(obj[pkcs11.Attribute.ID])
+                    except Exception:  # noqa: BLE001
+                        cert_obj_id = None
+                    break
+            except Exception:  # noqa: BLE001
+                continue
+
+        # 1) Same CKA_ID as certificate object
+        if cert_obj_id is not None:
+            for k in keys:
+                try:
+                    kid = bytes(k[pkcs11.Attribute.ID])
+                except Exception:  # noqa: BLE001
+                    continue
+                if kid == cert_obj_id:
+                    return kid
+
+        # 2) RSA modulus match with cert public key
+        if cert_modulus is not None:
+            for k in keys:
+                try:
+                    mod = k[pkcs11.Attribute.MODULUS]
+                    if int.from_bytes(bytes(mod), "big") == cert_modulus:
+                        kid = bytes(k[pkcs11.Attribute.ID])
+                        return kid
+                except Exception:  # noqa: BLE001
+                    continue
+
+        # 3) Exactly one private key
+        if len(keys) == 1:
+            try:
+                return bytes(keys[0][pkcs11.Attribute.ID])
+            except Exception:  # noqa: BLE001
+                return None
+        return None
+
+    @staticmethod
     def open_session_with_pin(
         library_path: Path,
         pin: str,
         *,
         cert_label: str | None = None,
         cert_serial: str | None = None,
-    ) -> tuple[Any, Any]:
-        """Return (pkcs11_session, asn1_certificate). PIN not retained after return."""
+    ) -> tuple[Any, Any, bytes | None]:
+        """Return (pkcs11_session, asn1_certificate, private_key_id). PIN not retained after return."""
         import hashlib
 
         import pkcs11
@@ -152,7 +231,6 @@ class TokenPdfSigner:
         for slot in slots:
             try:
                 token = slot.get_token()
-                # python-pkcs11: login via token.open(user_pin=...), not Session.login()
                 session = token.open(
                     rw=False,
                     user_pin=pin,
@@ -219,7 +297,8 @@ class TokenPdfSigner:
                     )
                     continue
                 _ = hashlib.sha256(chosen_der or b"").hexdigest()
-                return session, chosen
+                key_id = TokenPdfSigner._find_private_key_id(session, chosen)
+                return session, chosen, key_id
             except TokenError:
                 session.close()
                 raise
@@ -235,15 +314,19 @@ class TokenPdfSigner:
             raise TokenError(str(last_err), code="CERT_NOT_ON_TOKEN") from last_err
         raise TokenError(f"token login/list failed: {last_err}", code="TOKEN_LOGIN") from last_err
 
-    def bind_session(self, session: Any, signing_cert: Any) -> None:
+    def bind_session(
+        self,
+        session: Any,
+        signing_cert: Any,
+        key_id: bytes | None = None,
+    ) -> None:
         import hashlib
 
         self._session = session
         self._signing_cert = signing_cert
+        self._key_id = key_id
         self.cert_info: object | None = None
         if signing_cert is not None:
-            import hashlib
-
             self.certificate_fingerprint_sha256 = hashlib.sha256(signing_cert.dump()).hexdigest()
 
     def _make_pyhanko_signer(self) -> Any:
@@ -251,7 +334,24 @@ class TokenPdfSigner:
             raise TokenError("token session not bound; call open_session_with_pin + bind_session")
         from pyhanko.sign.pkcs11 import PKCS11Signer
 
-        return PKCS11Signer(self._session, signing_cert=self._signing_cert)
+        kwargs: dict[str, Any] = {"signing_cert": self._signing_cert}
+        if self._key_id:
+            kwargs["key_id"] = self._key_id
+        try:
+            return PKCS11Signer(self._session, **kwargs)
+        except Exception as exc:  # noqa: BLE001
+            text = str(exc)
+            if "more than one private key" in text.lower():
+                # Retry without key_id but with cert_id if we can discover it later
+                if self._key_id:
+                    kwargs.pop("key_id", None)
+                    return PKCS11Signer(self._session, **kwargs)
+                raise TokenError(
+                    "Token có nhiều private key — chưa xác định được key khớp CKS đã chọn.\n"
+                    "Hãy Quét lại token và chọn đúng chứng thư; hoặc dùng token chỉ có 1 key ký.",
+                    code="MULTI_KEY",
+                ) from exc
+            raise TokenError(f"token sign failed: {text}", code="SIGN_FAILED") from exc
 
     def preflight(self, input_path: Path, profile: SigningProfile) -> object:
         from golden_signing.pdf.inspection import preflight_pdf
@@ -334,15 +434,24 @@ class TokenPdfSigner:
         except Exception as exc:  # noqa: BLE001
             output_path.unlink(missing_ok=True)
             text = str(exc)
-            code = (
-                "TOKEN_LOST"
-                if "REMOVED" in text.upper() or "DEVICE" in text.upper()
-                else "SIGN_FAILED"
-            )
+            low = text.lower()
+            if "more than one private key" in low:
+                code = "MULTI_KEY"
+                message = (
+                    "token sign failed: Found more than one private key.\n"
+                    "Token CA2 có nhiều private key — Golden Sign đã chọn key khớp CKS; "
+                    "nếu vẫn lỗi hãy Quét lại token và chọn đúng chứng thư."
+                )
+            elif "REMOVED" in text.upper() or "DEVICE" in text.upper():
+                code = "TOKEN_LOST"
+                message = f"token sign failed: {exc}"
+            else:
+                code = "SIGN_FAILED"
+                message = f"token sign failed: {exc}"
             return SignResult(
                 success=False,
                 error_code=code,
-                message=f"token sign failed: {exc}",
+                message=message,
                 duration_s=time.perf_counter() - t0,
             )
 
