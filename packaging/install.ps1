@@ -5,7 +5,7 @@
 $ErrorActionPreference = "Stop"
 $AppName = "Golden Sign"
 $Publisher = "HOC HK"
-$Version = "1.1.12"
+$Version = "1.1.13"
 $InstallDir = Join-Path $env:LOCALAPPDATA "Programs\GoldenSign"
 $ExeName = "GoldenSign.exe"
 $Payload = Split-Path -Parent $MyInvocation.MyCommand.Path

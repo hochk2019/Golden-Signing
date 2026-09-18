@@ -1,0 +1,7 @@
+ps0=0
+note='Chứng thư: User ID: MST:2300944637, Common Name: CÔNG TY TN…\nNguồn: ECA Token v1.0 · Hết hạn: 2028-07-06'
+ps1=0
+jobs=1
+note2='Chứng thư: User ID: MST:2300944637, Common Name: CÔNG TY TN…\nNguồn: ECA Token v1.0 · Hết hạn: 2028-07-06'
+ps2=0
+UI_OFFSCREEN_OK

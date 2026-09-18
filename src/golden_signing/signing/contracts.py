@@ -42,6 +42,9 @@ class CertificateInfo:
     key_size: int | None = None
     token_label: str | None = None
     backend: str = "unknown"
+    has_private_key: bool | None = None
+    eku_oids: tuple[str, ...] = ()
+    key_usage_digital_signature: bool | None = None
 
 
 @dataclass(slots=True)

@@ -140,6 +140,7 @@ def _convert_excel(source: Path, output: Path) -> None:
 def _convert_libreoffice(source: Path, output: Path) -> None:
     import shutil
     import subprocess
+    import sys
     import tempfile
 
     soffice = shutil.which("soffice") or shutil.which("libreoffice")
@@ -147,6 +148,7 @@ def _convert_libreoffice(source: Path, output: Path) -> None:
         raise ConversionError(
             "Không tìm thấy Microsoft Office hoặc LibreOffice", code="NO_CONVERTER"
         )
+    creationflags = 0x08000000 if sys.platform.startswith("win") else 0
     with tempfile.TemporaryDirectory(prefix="gs-lo-") as td:
         cmd = [
             soffice,
@@ -159,7 +161,13 @@ def _convert_libreoffice(source: Path, output: Path) -> None:
             str(source),
         ]
         try:
-            subprocess.run(cmd, check=True, timeout=_TIMEOUT_S, capture_output=True)
+            subprocess.run(
+                cmd,
+                check=True,
+                timeout=_TIMEOUT_S,
+                capture_output=True,
+                creationflags=creationflags,
+            )
         except Exception as exc:  # noqa: BLE001
             raise ConversionError(
                 f"LibreOffice chuyển đổi thất bại: {exc}", code="OFFICE_LO_ERROR"
