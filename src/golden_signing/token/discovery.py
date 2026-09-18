@@ -55,6 +55,9 @@ _SYSTEM32_NAMES: tuple[str, ...] = (
     "vnpt-ca_csp11.dll",
     "fptca_v4.dll",
     "CA2_csp11.dll",
+    "CA2_csp11_s.dll",
+    "ca2_ace_csp11.dll",
+    "ca2_ace_csp11_s.dll",
     "ostc1_csp11.dll",
     "ostc1_csp11_s.dll",
     "BkavCA_P11.dll",
@@ -102,6 +105,9 @@ def _program_files_roots() -> list[Path]:
 def _looks_like_pkcs11_dll(name: str) -> bool:
     low = name.lower()
     if not low.endswith(".dll"):
+        return False
+    # Vendor helper modules (CA2_csp11_s.dll) are not full PKCS#11 providers
+    if low.endswith("_s.dll"):
         return False
     return any(h in low for h in _DLL_NAME_HINTS)
 
@@ -171,6 +177,8 @@ def discover_pkcs11_libraries(
         except OSError:
             resolved = path
         if resolved in seen:
+            return
+        if resolved.name.lower().endswith("_s.dll"):
             return
         if resolved.is_file():
             seen.add(resolved)

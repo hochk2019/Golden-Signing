@@ -1,0 +1,55 @@
+Golden Sign token diagnostic 2026-09-19T01:29:44.207861
+Python 3.13.1 (tags/v3.13.1:0671451, Dec  3 2024, 19:06:28) [MSC v.1942 64 bit (AMD64)]  64bit=True
+
+=== PKCS#11 DLL (compatible with Golden Sign) ===
+  [x64] C:\Windows\System32\eca_csp11_v1.dll
+  [x64] C:\Windows\System32\vnptca_p11_v10.dll
+  [x64] C:\Windows\System32\fptca_v4.dll
+  [x64] C:\Windows\System32\CA2_csp11.dll
+  [x64] C:\Windows\System32\CA2_csp11_s.dll
+  [x64] C:\Windows\System32\ca2_ace_csp11.dll
+  [x64] C:\Windows\System32\ca2_ace_csp11_s.dll
+
+=== PKCS#11 DLL (all found, incl. wrong bitness) ===
+  [OK x64] C:\Windows\System32\eca_csp11_v1.dll
+  [OK x64] C:\Windows\System32\vnptca_p11_v10.dll
+  [OK x64] C:\Windows\System32\fptca_v4.dll
+  [OK x64] C:\Windows\System32\CA2_csp11.dll
+  [OK x64] C:\Windows\System32\CA2_csp11_s.dll
+  [OK x64] C:\Windows\System32\ca2_ace_csp11.dll
+  [OK x64] C:\Windows\System32\ca2_ace_csp11_s.dll
+  [SKIP x86] C:\Windows\SysWOW64\eca_csp11_v1.dll
+  [SKIP x86] C:\Windows\SysWOW64\vnptca_p11_v10.dll
+  [SKIP x86] C:\Windows\SysWOW64\fptca_v4.dll
+  [SKIP x86] C:\Windows\SysWOW64\CA2_csp11.dll
+  [SKIP x86] C:\Windows\SysWOW64\CA2_csp11_s.dll
+  [SKIP x86] C:\Windows\SysWOW64\ca2_ace_csp11.dll
+  [SKIP x86] C:\Windows\SysWOW64\ca2_ace_csp11_s.dll
+
+=== Probe each compatible DLL (no PIN) ===
+  eca_csp11_v1.dll: 1 cert(s)
+    serial=540117eca0139bb7c55c666d4550b3a4 subject=User ID: MST:2300944637, Common Name: CÔNG TY TNHH JAEYOUNG VINA, State/Province
+  vnptca_p11_v10.dll: FAIL no token present
+  fptca_v4.dll: FAIL no token present
+  CA2_csp11.dll: FAIL no token present
+  CA2_csp11_s.dll: FAIL cannot load PKCS#11: C:\Windows\System32\CA2_csp11_s.dll
+OS exception while loading C:\Windows\System32\CA2_csp11_s.dll: The specified procedure could not be found.
+
+  ca2_ace_csp11.dll: FAIL no token present
+  ca2_ace_csp11_s.dll: FAIL cannot load PKCS#11: C:\Windows\System32\ca2_ace_csp11_s.dll
+OS exception while loading C:\Windows\System32\ca2_ace_csp11_s.dll: The specified procedure could not be found.
+
+
+=== Windows certmgr My (certutil hidden) ===
+  count=1
+  pk=True sign=True after=2028-06-07T11:09:00+00:00 serial=540117eca0139bb7c55c666d4550b3a4
+    OID.0.9.2342.19200300.100.1.1=MST:2300944637, CN=CÔNG TY TNHH JAEYOUNG VINA, S=T?nh B?c Ninh, C=VN
+
+=== Display certs (what Golden Sign picker would show) ===
+  [pkcs11] serial=540117eca0139bb7c55c666d4550b3a4 User ID: MST:2300944637, Common Name: CÔNG TY TNHH JAEYOUNG VINA, State/Province
+    token_label=ECA Token v1.0 after=2028-07-06 04:09:36+00:00
+
+=== Interpreting error Chi tiết None ===
+  Means: no compatible PKCS#11 DLL OR open_session never raised.
+  Fix: install CA2/ECA/VNPT **x64** middleware; plug token; Quét lại token.
+  DLL in SysWOW64 / TSD\ECUS_EX4 are usually 32-bit — not for Golden Sign x64.
