@@ -539,18 +539,22 @@ class MainWindow(QMainWindow):
         extra = ("\n\n" + "\n".join(failed_msgs[:5])) if failed_msgs else ""
         title = "Golden Sign"
         out_dir = batch._output_dir if hasattr(batch, "_output_dir") else ""  # noqa: SLF001
+        note_ecus = (
+            "\n\nCửa sổ ECUS “Lấy phản hồi trình ký” là phần mềm khác — "
+            "không phải kết quả ký của Golden Sign."
+        )
         if result.failed:
             QMessageBox.warning(
                 self,
                 title,
                 f"Hoàn tất: {result.success} thành công · {result.failed} lỗi · "
-                f"{result.cancelled} hủy\nThư mục: {out_dir}{extra}",
+                f"{result.cancelled} hủy\nThư mục: {out_dir}{extra}{note_ecus}",
             )
         else:
             QMessageBox.information(
                 self,
                 title,
-                f"Hoàn tất: {result.success} thành công · 0 lỗi\nThư mục: {out_dir}",
+                f"Hoàn tất: {result.success} thành công · 0 lỗi\nThư mục: {out_dir}{note_ecus}",
             )
 
     def _sample_pdf_for_position(self) -> Path | None:
@@ -935,12 +939,18 @@ class MainWindow(QMainWindow):
     def _ensure_token_engine(self) -> TokenPdfSigner | None:
         from golden_signing.certificate.catalog import collect_display_certificates
         from golden_signing.certificate.windows_store import certificate_is_signing_capable
+        from golden_signing.signing.exceptions import TokenError
         from golden_signing.signing.token_pdf_signer import TokenPdfSigner as TPS
+        from golden_signing.token.discovery import (
+            discover_pkcs11_libraries,
+            pe_machine_label,
+            process_is_64bit,
+        )
         from golden_signing.ui.cert_label import common_name_from_subject
         from golden_signing.ui.token_dialogs import CertPickerDialog, PinDialog
 
         dlls = discover_pkcs11_libraries()
-        # use_cache=True — do not spawn PowerShell again just to open the picker
+        all_dlls = discover_pkcs11_libraries(include_incompatible=True)
         certs = collect_display_certificates(dlls=None, use_cache=True)
         if not certs:
             QMessageBox.warning(
@@ -968,19 +978,40 @@ class MainWindow(QMainWindow):
         company = common_name_from_subject(getattr(chosen, "subject", "") or "")
         serial = str(getattr(chosen, "serial", "") or "")
         fp = str(getattr(chosen, "fingerprint_sha256", "") or "")
+        backend = str(getattr(chosen, "backend", "") or "")
 
-        def _serial_match(a: str, b: str) -> bool:
-            return a.lower().lstrip("0") == b.lower().lstrip("0")
+        def _dll_report(paths: list) -> str:
+            if not paths:
+                return "(không tìm thấy DLL PKCS#11)"
+            bits = "64-bit" if process_is_64bit() else "32-bit"
+            lines = [f"Golden Sign {bits} — chỉ dùng DLL cùng kiến trúc:"]
+            for p in paths[:12]:
+                lines.append(f"  · [{pe_machine_label(p)}] {p.name} — {p}")
+            return "\n".join(lines)
 
-        # Build ordered PKCS#11 candidates: matching library first, then all others
-        candidates: list = []
-        seen_dlls: set[str] = set()
-        for dll in dlls:
-            key = str(dll)
-            if key in seen_dlls:
-                continue
-            seen_dlls.add(key)
-            candidates.append(dll)
+        # Store-only cert + no compatible PKCS#11 → fail BEFORE PIN (this is the
+        # “Chi tiết: None” path on customer PCs with 32-bit CA middleware).
+        if not dlls:
+            x86_only = [p for p in all_dlls if pe_machine_label(p) == "x86"]
+            detail = _dll_report(all_dlls)
+            QMessageBox.critical(
+                self,
+                "Token",
+                "Không mở được phiên ký trên token/PKCS#11.\n"
+                f"• CKS: {company or chosen.subject[:48]}\n"
+                f"• Serial: {serial or '—'}\n"
+                f"• Nguồn: {backend or 'unknown'}\n\n"
+                "Nguyên nhân: chưa có thư viện PKCS#11 **cùng kiến trúc** với Golden Sign.\n"
+                "• Certmgr có thể thấy CKS (Windows store) nhưng **không tự ký được** nếu thiếu middleware.\n"
+                "• Cài middleware CA bản **x64** (ECA/CA2/VNPT/FPT…) rồi Quét lại token.\n"
+                "• DLL 32-bit (vd trong TSD\\ECUS_EX4, SysWOW64) chỉ hợp app 32-bit như ECUS — không dùng được cho Golden Sign 64-bit.\n\n"
+                + (
+                    f"Đã tìm thấy {len(x86_only)} DLL PKCS#11 32-bit (bỏ qua):\n{detail}"
+                    if x86_only
+                    else detail
+                ),
+            )
+            return None
 
         pin_dlg = PinDialog(company=company, parent=self)
         if pin_dlg.exec() != QDialog.DialogCode.Accepted:
@@ -992,9 +1023,11 @@ class MainWindow(QMainWindow):
         session = None
         asn1_cert = None
         used_dll = None
-        last_err: Exception | None = None
+        last_err: Exception | str | None = None
+        tried: list[str] = []
         try:
-            for dll in candidates:
+            for dll in dlls:
+                tried.append(f"{pe_machine_label(dll)}:{dll.name}")
                 try:
                     session, asn1_cert = TPS.open_session_with_pin(
                         dll,
@@ -1005,15 +1038,12 @@ class MainWindow(QMainWindow):
                     break
                 except Exception as exc:  # noqa: BLE001
                     last_err = exc
-                    # Wrong PIN is fatal — do not try other DLLs
-                    code = getattr(exc, "code", "")
-                    if code == "WRONG_PIN":
+                    if getattr(exc, "code", "") == "WRONG_PIN":
                         raise
                     continue
-                # also accept if list_certificates on this dll contains fp/serial
             if session is None:
-                # Fallback: open first DLL without serial (token may expose one cert)
-                for dll in candidates:
+                for dll in dlls:
+                    tried.append(f"{pe_machine_label(dll)}:{dll.name}(no-serial)")
                     try:
                         session, asn1_cert = TPS.open_session_with_pin(dll, pin)
                         used_dll = dll
@@ -1030,15 +1060,31 @@ class MainWindow(QMainWindow):
             pin = ""
 
         if session is None or used_dll is None:
+            detail_txt = str(last_err) if last_err is not None else "(không có exception từ PKCS#11)"
+            if last_err is None:
+                detail_txt = (
+                    "Không có thư viện PKCS#11 nào mở được phiên — "
+                    "danh sách DLL sau lọc có thể rỗng hoặc load thất bại không ghi exception."
+                )
+            store_note = ""
+            if backend == "windows_store":
+                store_note = (
+                    "\n• CKS này nằm trong **Windows cert store**. "
+                    "Muốn ký USB token cần middleware CA load được private key trên token "
+                    "(serial phải khớp token).\n"
+                )
             QMessageBox.critical(
                 self,
                 "Token",
                 "Không mở được phiên ký trên token/PKCS#11.\n"
-                f"• CKS: {company or chosen.subject[:40]}\n"
+                f"• CKS: {company or chosen.subject[:48]}\n"
                 f"• Serial: {serial or '—'}\n"
-                "• Cài middleware CA của token (CA2/VNPT/FPT/ECA…)\n"
+                f"• Nguồn: {backend or 'unknown'}\n"
+                f"• Cài middleware CA của token (CA2/VNPT/FPT/ECA…){store_note}"
                 "• Kiểm tra token USB + PIN\n"
-                f"Chi tiết: {last_err}",
+                f"• Đã thử DLL: {', '.join(tried) if tried else '(không có)'}\n"
+                f"Chi tiết: {detail_txt}\n\n"
+                f"{_dll_report(dlls)}",
             )
             return None
 

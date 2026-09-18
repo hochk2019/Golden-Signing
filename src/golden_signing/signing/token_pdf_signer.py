@@ -20,6 +20,30 @@ from golden_signing.signing.pus_safe import assert_pus_safe_invariants, resolve_
 __all__ = ["TokenPdfSigner"]
 
 
+def _pkcs11_load_message(library_path: Path, exc: Exception) -> str:
+    """Human-readable PKCS#11 load failure (bitness / missing file / other)."""
+    from golden_signing.token.discovery import pe_machine_label, process_is_64bit
+
+    text = str(exc)
+    low = text.lower()
+    arch = pe_machine_label(library_path)
+    bitness = "64-bit" if process_is_64bit() else "32-bit"
+    if "not a valid win32" in low or "193" in low or arch in ("x86", "x64") and arch != (
+        "x64" if process_is_64bit() else "x86"
+    ):
+        return (
+            f"Không load được PKCS#11 (sai kiến trúc DLL).\n"
+            f"Thư viện: {library_path}\n"
+            f"• DLL: {arch} · Golden Sign: {bitness}\n"
+            f"• Cài middleware CA bản {'x64' if process_is_64bit() else '32-bit'} "
+            f"hoặc trỏ GOLDEN_SIGNING_PKCS11 tới DLL đúng kiến trúc.\n"
+            f"Chi tiết: {text}"
+        )
+    if "not found" in low or "không tìm thấy" in low:
+        return f"Không tìm thấy PKCS#11: {library_path}\n{text}"
+    return f"cannot load PKCS#11: {library_path}\n{text}"
+
+
 class TokenPdfSigner:
     """Sign PDFs with a PKCS#11 USB token. PIN never stored on the instance."""
 
@@ -61,7 +85,7 @@ class TokenPdfSigner:
             lib = pkcs11.lib(str(library_path))
             slots = list(lib.get_slots(token_present=True))
         except Exception as exc:  # noqa: BLE001
-            raise TokenError(f"cannot load PKCS#11: {exc}") from exc
+            raise TokenError(_pkcs11_load_message(library_path, exc), code="PKCS11_LOAD") from exc
         if not slots:
             raise TokenError("no token present")
 
@@ -120,7 +144,7 @@ class TokenPdfSigner:
             lib = pkcs11.lib(str(library_path))
             slots = list(lib.get_slots(token_present=True))
         except Exception as exc:  # noqa: BLE001
-            raise TokenError(f"cannot load PKCS#11: {exc}") from exc
+            raise TokenError(_pkcs11_load_message(library_path, exc), code="PKCS11_LOAD") from exc
         if not slots:
             raise TokenError("no token present")
 
@@ -179,7 +203,20 @@ class TokenPdfSigner:
                         break
                 if chosen is None:
                     session.close()
-                    last_err = TokenError("no matching certificate on token")
+                    serials = []
+                    for obj in certs:
+                        try:
+                            d = bytes(obj[pkcs11.Attribute.VALUE])
+                            serials.append(format(asn1_x509.Certificate.load(d).serial_number, "x"))
+                        except Exception:  # noqa: BLE001
+                            continue
+                    last_err = TokenError(
+                        f"Token không có CKS khớp serial đã chọn.\n"
+                        f"• Serial yêu cầu: {cert_serial or '(bất kỳ)'}\n"
+                        f"• Serial trên token: {', '.join(serials) if serials else '(trống)'}\n"
+                        f"• Library: {library_path}",
+                        code="CERT_NOT_ON_TOKEN",
+                    )
                     continue
                 _ = hashlib.sha256(chosen_der or b"").hexdigest()
                 return session, chosen
@@ -192,7 +229,11 @@ class TokenPdfSigner:
                 last_err = exc
                 continue
 
-        raise TokenError(f"token login/list failed: {last_err}")
+        if "not a valid win32" in str(last_err).lower() or getattr(last_err, "code", "") == "PKCS11_LOAD":
+            raise TokenError(str(last_err), code="PKCS11_LOAD") from last_err
+        if getattr(last_err, "code", "") == "CERT_NOT_ON_TOKEN":
+            raise TokenError(str(last_err), code="CERT_NOT_ON_TOKEN") from last_err
+        raise TokenError(f"token login/list failed: {last_err}", code="TOKEN_LOGIN") from last_err
 
     def bind_session(self, session: Any, signing_cert: Any) -> None:
         import hashlib
