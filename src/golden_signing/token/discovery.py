@@ -17,17 +17,58 @@ _DEFAULT_RELATIVE: tuple[str, ...] = (
     r"Athena\ASECard\pkcs11.dll",
     r"SafeNet\Authentication\PKCS11\epkcs11.dll",
     r"SafeNet\SoftSafeNet\pkcs11.dll",
+    # Vietnamese CA middleware (ECUS / TokenManager installs)
+    r"TSD\ECUS_EX4\vnpt-ca_csp11.dll",
+    r"TSD\ECUS_EX4\CA2_csp11.dll",
+    r"TSD\ECUS_EX4\ostc1_csp11.dll",
+    r"TSD\ECUS_K4\vnpt-ca_csp11.dll",
+    r"TSD\TokenManager\pkcs11.dll",
+    r"VNPT\VNPT-CA\vnpt-ca_p11_v10.dll",
+    r"FPT\FPT_CA\fptca_v4.dll",
+    r"CA2\PKCS11\CA2_csp11.dll",
+    r"BKAV\BKAVCA\BkavCA_P11.dll",
+    r"ViettelCA\viettel-ca_p11.dll",
 )
 
 _SYSTEM32_NAMES: tuple[str, ...] = (
     "eca_csp11_v1.dll",
+    "eca_csp11.dll",
     "opensc-pkcs11.dll",
     "eps2003csp11.dll",
     "aetpkss1.dll",
     "eTPKCS11.dll",
     "PKCS11.dll",
     "vnptca_p11_v10.dll",
+    "vnpt-ca_csp11.dll",
     "fptca_v4.dll",
+    "CA2_csp11.dll",
+    "ostc1_csp11.dll",
+    "ostc1_csp11_s.dll",
+    "BkavCA_P11.dll",
+    "viettel-ca_p11.dll",
+)
+
+# Filename fragments used when scanning Program Files / vendor folders.
+_DLL_NAME_HINTS: tuple[str, ...] = (
+    "pkcs11",
+    "csp11",
+    "p11",
+    "epkcs11",
+    "aetpkss1",
+)
+
+_SCAN_DIR_HINTS: tuple[str, ...] = (
+    "TSD",
+    "ECUS",
+    "VNPT",
+    "FPT",
+    "CA2",
+    "BKAV",
+    "Viettel",
+    "ECA",
+    "TokenManager",
+    "SafeNet",
+    "OpenSC",
 )
 
 
@@ -45,6 +86,13 @@ def _program_files_roots() -> list[Path]:
     return roots
 
 
+def _looks_like_pkcs11_dll(name: str) -> bool:
+    low = name.lower()
+    if not low.endswith(".dll"):
+        return False
+    return any(h in low for h in _DLL_NAME_HINTS)
+
+
 def discover_pkcs11_libraries(
     *,
     extra_roots: Iterable[Path] | None = None,
@@ -54,8 +102,9 @@ def discover_pkcs11_libraries(
 
     Priority:
     1. ``GOLDEN_SIGNING_PKCS11`` (semicolon-separated paths)
-    2. Well-known Program Files / System32 names
-    3. ``extra_roots`` scanned for ``*.dll`` named like pkcs11
+    2. Well-known Program Files / System32 / SysWOW64 names
+    3. Vendor folders under Program Files (TSD/ECUS/VNPT/…)
+    4. ``extra_roots`` scanned for pkcs11-like DLLs
     """
     environ = env if env is not None else os.environ
     seen: set[Path] = set()
@@ -80,18 +129,43 @@ def discover_pkcs11_libraries(
     for root in _program_files_roots():
         for rel in _DEFAULT_RELATIVE:
             _add(root / rel)
+        # Shallow vendor folder scan (depth 2–3)
+        try:
+            if root.is_dir():
+                for child in root.iterdir():
+                    if not child.is_dir():
+                        continue
+                    name_l = child.name.lower()
+                    if not any(h.lower() in name_l for h in _SCAN_DIR_HINTS):
+                        continue
+                    for sub in (child, *list(child.iterdir())[:20]):
+                        if not sub.is_dir():
+                            continue
+                        try:
+                            for dll in sub.iterdir():
+                                if dll.is_file() and _looks_like_pkcs11_dll(dll.name):
+                                    _add(dll)
+                        except OSError:
+                            continue
+        except OSError:
+            pass
 
     windir = Path(environ.get("SystemRoot", r"C:\Windows"))
-    system32 = windir / "System32"
-    for name in _SYSTEM32_NAMES:
-        _add(system32 / name)
+    for sub in ("System32", "SysWOW64"):
+        system_dir = windir / sub
+        for name in _SYSTEM32_NAMES:
+            _add(system_dir / name)
 
     if extra_roots:
         for root in extra_roots:
             if not root.is_dir():
                 continue
-            for child in root.iterdir():
-                if child.is_file() and "pkcs11" in child.name.lower() and child.suffix.lower() == ".dll":
+            try:
+                children = list(root.iterdir())
+            except OSError:
+                continue
+            for child in children:
+                if child.is_file() and _looks_like_pkcs11_dll(child.name):
                     _add(child)
 
     return ordered

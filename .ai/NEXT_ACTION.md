@@ -1,47 +1,8 @@
 # NEXT ACTION
 
-**Current:** v1.1.5 released; icon-cache fix pending rebuild  
-**Last verified:** full pytest exit 0; helper CREATE_NO_WINDOW fix tested live  
-**Next:** rebuild 1.1.5 with icon-cache fix → user reinstalls → test update 1.1.5→next  
+1. **Cert scan fix (in progress / local):** broader PKCS#11 discovery + Windows My store listing + filter certs valid at sign date (`certificate/catalog.py`, `certificate/windows_store.py`). User must rebuild/install on customer PC and retest.
+2. If store cert visible but sign fails: install CA middleware (CA2/VNPT/FPT/ECA PKCS#11) matching token.
+3. **ECUSSign remote signing PAUSED** — resume from project MEMORY.md (LHCCompress proven; submit blob Y unknown; path = Trình ký, no mã bảo mật).
+4. Do not push unless user asks.
 
-## Version compare note
-
-`check_for_update` uses `info.version > local` — same version (1.1.5 == 1.1.5) → **no update offered** (correct).
-
-## Do not
-
-- Do not claim PUS compatibility without real upload.
-- Do not compress a PDF after it is signed.
-- Do not rewrite Signing Core without regression tests.
-- Do not bundle Ghostscript AGPL.
-- Do not write PIN/private key to logs.
-- Do not overwrite source files.
-
-**Current phase:** I3 polish + RC prep (core convert/compress/UI wired)
-**Current task:** T53 UI polish · T54 docs/release
-**Last successful step:** full pytest exit 0 after convert+compress+worker+UI
-**Failed step:** Office COM unit test crashes host → spike-only (opt-in)
-**Files changed:** document/, compress/, batch/, ui/compression_dialog, main_window, file_table
-**Tests run:** `pytest -q` exit 0
-**Next exact action:** user GUI check (Nén và ký số); then version bump 1.1.0 + build release
-
-## Anti-forgetting (v1.1.0)
-
-| ID | Task | Status |
-|---|---|---|
-| T48 | S0 audit + control-plane | DONE |
-| T49 | S1 compression spike + ADR | DONE |
-| T50 | S2 Office spike + ADR | DONE |
-| T51 | I1 convert + job states | DONE |
-| T52 | I2 compression engine | DONE |
-| T53 | I3 UI compress + convert | DONE (user GUI check pending) |
-| T54 | I4 orchestrator + I5 docs/release | IN_PROGRESS |
-
-## Do not
-
-- Do not claim PUS compatibility without real upload.
-- Do not compress a PDF after it is signed.
-- Do not rewrite Signing Core without regression tests.
-- Do not bundle Ghostscript AGPL.
-- Do not write PIN/private key to logs.
-- Do not overwrite source files.
+User-reported images were ECUS “Lấy kết quả/phản hồi trình ký”, not Golden Sign cert UI — still treat as cert-scan bug on their install.

@@ -25,3 +25,8 @@ Thumbs.db
 *.pfx
 *.p12
 .env
+
+# ECUSSign reverse-engineering handoff (captures + credentials + WIP docs)
+# Leave uncommitted until remote-signing feature is ready
+Golden_Sign_ECUSSign/
+*.saz

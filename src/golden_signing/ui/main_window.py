@@ -854,22 +854,30 @@ class MainWindow(QMainWindow):
     # --- token --------------------------------------------------------
 
     def _refresh_token_label(self) -> None:
+        from golden_signing.certificate.catalog import collect_display_certificates
+        from golden_signing.token.discovery import discover_pkcs11_libraries
+
         dlls = discover_pkcs11_libraries()
-        if not dlls:
-            self._token_note.setText("Chưa tìm thấy PKCS#11.\nCó thể ký bằng lab cert (test).")
-            return
-        try:
-            certs = TokenPdfSigner.list_certificates(dlls[0])
-            if certs:
-                c = certs[0]
+        certs = collect_display_certificates(dlls=dlls)
+        if not certs:
+            if not dlls:
                 self._token_note.setText(
-                    f"Token: {c.token_label or 'USB'}\n{c.subject[:48]}…"
+                    "Chưa thấy chứng thư số còn hạn.\n"
+                    "Kiểm tra certmgr (Personal) / cài middleware token,\n"
+                    "hoặc ký bằng lab cert (test)."
                 )
-                self._profile_label.setText("Profile: PUS Safe · Token USB")
             else:
-                self._token_note.setText(f"PKCS#11: {dlls[0].name}\nChưa thấy chứng thư.")
-        except Exception as exc:  # noqa: BLE001
-            self._token_note.setText(f"Token lỗi: {exc}\nCó thể thử lab cert.")
+                self._token_note.setText(
+                    f"PKCS#11: {dlls[0].name}\nKhông thấy chứng thư còn hiệu lực khi ký."
+                )
+            return
+        c = certs[0]
+        backend = getattr(c, "backend", "") or ""
+        src = "Windows store" if backend == "windows_store" else (c.token_label or "USB")
+        self._token_note.setText(
+            f"Chứng thư: {c.subject[:48]}…\nNguồn: {src} · Hết hạn: {str(c.not_valid_after)[:10]}"
+        )
+        self._profile_label.setText("Profile: PUS Safe · Token USB")
 
     def _on_rescan_token(self) -> None:
         self._token_signer = None
@@ -877,26 +885,21 @@ class MainWindow(QMainWindow):
         self.statusBar().showMessage("Đã quét lại token", 3000)
 
     def _ensure_token_engine(self) -> TokenPdfSigner | None:
+        from golden_signing.certificate.catalog import collect_display_certificates
         from golden_signing.ui.cert_label import common_name_from_subject
         from golden_signing.ui.token_dialogs import CertPickerDialog, PinDialog
 
         dlls = discover_pkcs11_libraries()
-        if not dlls:
+        certs = collect_display_certificates(dlls=dlls)
+        if not certs:
             QMessageBox.warning(
                 self,
-                "Token",
-                "Không tìm thấy thư viện PKCS#11 / USB token.\n"
-                "Cắm token và thử lại, hoặc dùng Quét lại token.",
+                "Chứng thư số",
+                "Không tìm thấy chứng thư số còn hiệu lực.\n"
+                "• Kiểm tra certmgr.msc → Personal\n"
+                "• Cài middleware PKCS#11 của CA (nếu ký bằng USB token)\n"
+                "• Cắm token và bấm Quét lại token",
             )
-            return None
-        dll = dlls[0]
-        try:
-            certs = TokenPdfSigner.list_certificates(dll)
-        except Exception as exc:  # noqa: BLE001
-            QMessageBox.warning(self, "Token", f"Không đọc được token:\n{exc}")
-            return None
-        if not certs:
-            QMessageBox.warning(self, "Token", "Token không có chứng thư số.")
             return None
         dlg = CertPickerDialog(certs, self)
         if dlg.exec() != QDialog.DialogCode.Accepted:
@@ -905,6 +908,48 @@ class MainWindow(QMainWindow):
         if chosen is None:
             return None
         company = common_name_from_subject(getattr(chosen, "subject", "") or "")
+        backend = str(getattr(chosen, "backend", "") or "")
+        serial = getattr(chosen, "serial", None)
+
+        # Resolve a PKCS#11 library that can actually sign with this cert
+        dll = dlls[0] if dlls else None
+        if backend == "windows_store" or not dlls:
+            matched = None
+            for candidate in dlls:
+                try:
+                    from golden_signing.signing.token_pdf_signer import TokenPdfSigner as TPS
+
+                    for info in TPS.list_certificates(candidate):
+                        if serial and str(info.serial).lower().lstrip("0") == str(serial).lower().lstrip("0"):
+                            matched = candidate
+                            break
+                        if info.fingerprint_sha256 == getattr(chosen, "fingerprint_sha256", ""):
+                            matched = candidate
+                            break
+                except Exception:  # noqa: BLE001
+                    continue
+                if matched:
+                    break
+            if matched is not None:
+                dll = matched
+            elif backend == "windows_store":
+                QMessageBox.warning(
+                    self,
+                    "Chứng thư số",
+                    "Thấy chứng thư trong Windows (certmgr) nhưng chưa có thư viện PKCS#11 phù hợp để ký.\n"
+                    "Cài middleware của CA (CA2/VNPT/FPT/ECA…) rồi Quét lại token.\n"
+                    f"Serial: {serial or '—'}",
+                )
+                return None
+
+        if dll is None:
+            QMessageBox.warning(
+                self,
+                "Token",
+                "Không tìm thấy thư viện PKCS#11 / USB token.\n"
+                "Cắm token, cài middleware CA, hoặc dùng Quét lại token.",
+            )
+            return None
         pin_dlg = PinDialog(company=company, parent=self)
         if pin_dlg.exec() != QDialog.DialogCode.Accepted:
             return None
