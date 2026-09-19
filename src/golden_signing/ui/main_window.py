@@ -72,6 +72,7 @@ class MainWindow(QMainWindow):
         self._nav_buttons: list[QPushButton] = []
         self._cert_store = CertProfileStore()
         self._active_fingerprint: str | None = None
+        self._token_session_cache: dict[str, TokenPdfSigner] = {}
         self._sig_origin: tuple[int, int] | None = None
         self._sig_page = 0
         self._batch_engine: BatchEngine | None = None
@@ -183,7 +184,7 @@ class MainWindow(QMainWindow):
         actions = QHBoxLayout()
         self._add_btn = QPushButton("Thêm PDF")
         self._add_dir_btn = QPushButton("Thêm thư mục")
-        self._rescan_btn = QPushButton("Quét lại token")
+        self._rescan_btn = QPushButton("Reset CKS")
         self._add_btn.clicked.connect(self._on_add_files)
         self._add_dir_btn.clicked.connect(self._on_add_folder)
         self._rescan_btn.clicked.connect(self._on_rescan_token)
@@ -516,6 +517,12 @@ class MainWindow(QMainWindow):
         self._model.replace_jobs(list(batch.jobs))
         self._reload_table()
         self._update_summary()
+        try:
+            from golden_signing.certificate.catalog import clear_certificate_cache
+
+            clear_certificate_cache()
+        except Exception:  # noqa: BLE001
+            pass
         # audit history
         fp = self._active_fingerprint or ""
         mode_key = str(self._mode_combo.currentData() or "visible")
@@ -931,12 +938,24 @@ class MainWindow(QMainWindow):
         self._apply_token_scan_result(dlls, certs, "")
 
     def _on_rescan_token(self) -> None:
+        """Reset CKS: fresh cert list; keep PIN sessions from this run for same serial."""
         from golden_signing.certificate.catalog import clear_certificate_cache
 
         self._token_signer = None
         clear_certificate_cache()
         self._refresh_token_label()
-        self.statusBar().showMessage("Đã quét lại token", 3000)
+        self.statusBar().showMessage("Đã Reset CKS (làm mới danh sách token)", 3000)
+
+    def _show_token_error(self, text: str) -> None:
+        msg = QMessageBox(self)
+        msg.setIcon(QMessageBox.Icon.Critical)
+        msg.setWindowTitle("Token")
+        msg.setText(text)
+        reset_btn = msg.addButton("Reset CKS", QMessageBox.ButtonRole.ActionRole)
+        msg.addButton(QMessageBox.StandardButton.Ok)
+        msg.exec()
+        if msg.clickedButton() is reset_btn:
+            self._on_rescan_token()
 
     def _ensure_token_engine(self) -> TokenPdfSigner | None:
         from golden_signing.certificate.catalog import collect_display_certificates
@@ -953,7 +972,8 @@ class MainWindow(QMainWindow):
 
         dlls = discover_pkcs11_libraries()
         all_dlls = discover_pkcs11_libraries(include_incompatible=True)
-        certs = collect_display_certificates(dlls=None, use_cache=True)
+        # Fresh scan when signing — avoid stale multi-token cache
+        certs = collect_display_certificates(dlls=None, use_cache=False)
         if not certs:
             QMessageBox.warning(
                 self,
@@ -961,7 +981,7 @@ class MainWindow(QMainWindow):
                 "Không tìm thấy chứng thư số dùng để ký (còn hạn + có private key).\n"
                 "• certmgr.msc → Personal: CKS doanh nghiệp / Document Signing\n"
                 "• Ẩn Secure Email / cert hệ thống không dùng ký PDF\n"
-                "• Cài middleware CA + cắm token USB rồi Quét lại",
+                "• Cài middleware CA + cắm token USB rồi Reset CKS",
             )
             return None
         dlg = CertPickerDialog(certs, self)
@@ -991,29 +1011,98 @@ class MainWindow(QMainWindow):
                 lines.append(f"  · [{pe_machine_label(p)}] {p.name} — {p}")
             return "\n".join(lines)
 
-        # Store-only cert + no compatible PKCS#11 → fail BEFORE PIN (this is the
-        # “Chi tiết: None” path on customer PCs with 32-bit CA middleware).
+        # Store-only / no compatible PKCS#11 → fail before PIN
         if not dlls:
             x86_only = [p for p in all_dlls if pe_machine_label(p) == "x86"]
-            detail = _dll_report(all_dlls)
-            QMessageBox.critical(
-                self,
-                "Token",
+            self._show_token_error(
                 "Không mở được phiên ký trên token/PKCS#11.\n"
                 f"• CKS: {company or chosen.subject[:48]}\n"
                 f"• Serial: {serial or '—'}\n"
                 f"• Nguồn: {backend or 'unknown'}\n\n"
-                "Nguyên nhân: chưa có thư viện PKCS#11 **cùng kiến trúc** với Golden Sign.\n"
-                "• Certmgr có thể thấy CKS (Windows store) nhưng **không tự ký được** nếu thiếu middleware.\n"
-                "• Cài middleware CA bản **x64** (ECA/CA2/VNPT/FPT…) rồi Quét lại token.\n"
-                "• DLL 32-bit (vd trong TSD\\ECUS_EX4, SysWOW64) chỉ hợp app 32-bit như ECUS — không dùng được cho Golden Sign 64-bit.\n\n"
+                "Nguyên nhân: chưa có thư viện PKCS#11 cùng kiến trúc với Golden Sign.\n"
+                "• Cài middleware CA bản x64 (ECA/CA2/VNPT/FPT…) rồi Reset CKS.\n"
                 + (
-                    f"Đã tìm thấy {len(x86_only)} DLL PKCS#11 32-bit (bỏ qua):\n{detail}"
+                    f"Đã tìm thấy {len(x86_only)} DLL 32-bit (bỏ qua):\n{_dll_report(all_dlls)}"
                     if x86_only
-                    else detail
-                ),
+                    else _dll_report(all_dlls)
+                )
             )
             return None
+
+        # Reuse session opened this run for same serial (no PIN again)
+        cache_key = (serial or fp or "").lower().lstrip("0")
+        if cache_key:
+            cached = self._token_session_cache.get(cache_key)
+            if cached is not None:
+                lib = getattr(cached, "library_path", None)
+                if lib is not None and Path(lib).is_file() and TPS.serial_on_library(Path(lib), serial or ""):
+                    cached.cert_info = chosen
+                    if fp:
+                        cached.certificate_fingerprint_sha256 = fp
+                    self._token_signer = cached
+                    cn0 = common_name_from_subject(chosen.subject)
+                    self._profile_label.setText(f"Profile: PUS Safe · {_ellipsis(cn0, 32)}")
+                    self._token_note.setText(
+                        f"Đã kết nối: {_ellipsis(cn0, 40)}\n"
+                        f"Token: {getattr(chosen, 'token_label', None) or Path(lib).name}"
+                    )
+                    self._load_cert_profile(fp, company=cn0)
+                    return cached
+                self._token_session_cache.pop(cache_key, None)
+                try:
+                    cached.close_session()
+                except Exception:  # noqa: BLE001
+                    pass
+
+        lib_str = getattr(chosen, "pkcs11_library", None) or None
+        preferred = [Path(lib_str)] if lib_str else []
+        candidates: list[Path] = []
+        seen_dlls: set[str] = set()
+        for dll in [*preferred, *dlls]:
+            key = str(dll)
+            if key in seen_dlls:
+                continue
+            seen_dlls.add(key)
+            try:
+                if Path(dll).is_file():
+                    candidates.append(Path(dll))
+            except Exception:  # noqa: BLE001
+                continue
+        if not candidates:
+            self._show_token_error(
+                "Không mở được phiên ký trên token/PKCS#11.\n"
+                f"• CKS: {company or chosen.subject[:48]}\n"
+                f"• Serial: {serial or '—'}\n"
+                "• Không có DLL PKCS#11 tương thích — cài middleware CA x64.\n"
+                f"{_dll_report(dlls)}"
+            )
+            return None
+
+        try_order = candidates
+        if serial:
+            pre_notes: list[str] = []
+            found_dll = None
+            for dll in candidates:
+                ok = TPS.serial_on_library(dll, serial)
+                pre_notes.append(f"{'OK' if ok else 'NO'} {pe_machine_label(dll)}:{dll.name}")
+                if ok:
+                    found_dll = dll
+                    break
+            if found_dll is None:
+                self._show_token_error(
+                    "Không mở được phiên ký trên token/PKCS#11.\n"
+                    f"• CKS: {company or chosen.subject[:48]}\n"
+                    f"• Serial: {serial}\n"
+                    f"• Nguồn: {backend or 'unknown'}\n\n"
+                    "Không thấy serial này trên token PKCS#11 đang cắm.\n"
+                    "• Cắm đúng USB token chứa CKS đó\n"
+                    "• Ấn Reset CKS rồi chọn lại chứng thư\n"
+                    "• Không mở session thiếu serial (tránh ký nhầm token khác)\n"
+                    f"Kiểm tra: {', '.join(pre_notes)}\n\n"
+                    f"{_dll_report(candidates)}"
+                )
+                return None
+            try_order = [found_dll] + [d for d in candidates if d != found_dll]
 
         pin_dlg = PinDialog(company=company, parent=self)
         if pin_dlg.exec() != QDialog.DialogCode.Accepted:
@@ -1029,7 +1118,7 @@ class MainWindow(QMainWindow):
         last_err: Exception | str | None = None
         tried: list[str] = []
         try:
-            for dll in dlls:
+            for dll in try_order:
                 tried.append(f"{pe_machine_label(dll)}:{dll.name}")
                 try:
                     session, asn1_cert, key_id = TPS.open_session_with_pin(
@@ -1045,21 +1134,8 @@ class MainWindow(QMainWindow):
                     if getattr(exc, "code", "") == "WRONG_PIN":
                         raise
                     continue
-            if session is None:
-                for dll in dlls:
-                    tried.append(f"{pe_machine_label(dll)}:{dll.name}(no-serial)")
-                    try:
-                        session, asn1_cert, key_id = TPS.open_session_with_pin(dll, pin)
-                        used_dll = dll
-                        used_key_id = key_id
-                        break
-                    except Exception as exc:  # noqa: BLE001
-                        last_err = exc
-                        if getattr(exc, "code", "") == "WRONG_PIN":
-                            raise
-                        continue
         except Exception as exc:  # noqa: BLE001
-            QMessageBox.critical(self, "Token", f"Đăng nhập token thất bại:\n{exc}")
+            self._show_token_error(f"Đăng nhập token thất bại:\n{exc}")
             return None
         finally:
             pin = ""
@@ -1067,31 +1143,48 @@ class MainWindow(QMainWindow):
         if session is None or used_dll is None:
             detail_txt = str(last_err) if last_err is not None else "(không có exception từ PKCS#11)"
             if last_err is None:
-                detail_txt = (
-                    "Không có thư viện PKCS#11 nào mở được phiên — "
-                    "danh sách DLL sau lọc có thể rỗng hoặc load thất bại không ghi exception."
-                )
-            store_note = ""
-            if backend == "windows_store":
-                store_note = (
-                    "\n• CKS này nằm trong **Windows cert store**. "
-                    "Muốn ký USB token cần middleware CA load được private key trên token "
-                    "(serial phải khớp token).\n"
-                )
-            QMessageBox.critical(
-                self,
-                "Token",
+                detail_txt = "Token không mở được phiên PKCS#11 cho serial đã chọn."
+            self._show_token_error(
                 "Không mở được phiên ký trên token/PKCS#11.\n"
                 f"• CKS: {company or chosen.subject[:48]}\n"
                 f"• Serial: {serial or '—'}\n"
                 f"• Nguồn: {backend or 'unknown'}\n"
-                f"• Cài middleware CA của token (CA2/VNPT/FPT/ECA…){store_note}"
-                "• Kiểm tra token USB + PIN\n"
+                "• Kiểm tra token USB + PIN + middleware CA\n"
                 f"• Đã thử DLL: {', '.join(tried) if tried else '(không có)'}\n"
                 f"Chi tiết: {detail_txt}\n\n"
-                f"{_dll_report(dlls)}",
+                f"{_dll_report(try_order)}\n\n"
+                "Có thể ấn Reset CKS để làm mới danh sách token."
             )
             return None
+
+        if serial:
+            ret_serial = ""
+            try:
+                from asn1crypto import x509 as asn1_x509
+
+                ret_serial = format(asn1_x509.Certificate.load(asn1_cert.dump()).serial_number, "x")
+            except Exception:  # noqa: BLE001
+                ret_serial = ""
+            if ret_serial and ret_serial.lower().lstrip("0") != serial.lower().lstrip("0"):
+                try:
+                    session.close()
+                except Exception:  # noqa: BLE001
+                    pass
+                self._show_token_error(
+                    "Token trả về CKS khác với lựa chọn.\n"
+                    f"• Chọn: {serial}\n• Trên token: {ret_serial}\n"
+                    "• Ấn Reset CKS và chọn lại đúng chứng thư."
+                )
+                return None
+
+        if self._token_signer is not None and cache_key:
+            prev_info = getattr(self._token_signer, "cert_info", None)
+            prev_key = str(getattr(prev_info, "serial", "") or "").lower().lstrip("0")
+            if prev_key and prev_key != cache_key:
+                try:
+                    self._token_signer.close_session()
+                except Exception:  # noqa: BLE001
+                    pass
 
         signer = TokenPdfSigner(used_dll)
         signer.bind_session(session, asn1_cert, key_id=used_key_id)
@@ -1099,6 +1192,8 @@ class MainWindow(QMainWindow):
         if fp:
             signer.certificate_fingerprint_sha256 = fp
         self._token_signer = signer
+        if cache_key:
+            self._token_session_cache[cache_key] = signer
         cn = common_name_from_subject(chosen.subject)
         self._profile_label.setText(f"Profile: PUS Safe · {_ellipsis(cn, 32)}")
         self._token_note.setText(
@@ -1323,7 +1418,35 @@ class MainWindow(QMainWindow):
             QMessageBox.information(self, "Golden Sign", "Không có file chờ ký.")
             return
 
+        from golden_signing.signing.token_pdf_signer import TokenPdfSigner as TPS
+
         engine = self._token_signer
+        if engine is not None:
+            info = getattr(engine, "cert_info", None)
+            serial = str(getattr(info, "serial", "") or "") if info else ""
+            lib = getattr(engine, "library_path", None)
+            if not serial or lib is None or not Path(lib).is_file():
+                try:
+                    engine.close_session()
+                except Exception:  # noqa: BLE001
+                    pass
+                self._token_signer = None
+                engine = None
+            else:
+                try:
+                    if not TPS.serial_on_library(Path(lib), serial):
+                        try:
+                            engine.close_session()
+                        except Exception:  # noqa: BLE001
+                            pass
+                        self._token_signer = None
+                        engine = None
+                        self.statusBar().showMessage(
+                            "Token/CKS trước đó không còn — chọn lại chứng thư", 4000
+                        )
+                except Exception:  # noqa: BLE001
+                    self._token_signer = None
+                    engine = None
         if engine is None:
             engine = self._ensure_token_engine()
             if engine is None:

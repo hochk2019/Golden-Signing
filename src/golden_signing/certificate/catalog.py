@@ -33,9 +33,12 @@ def clear_certificate_cache() -> None:
     _CACHE_TS = 0.0
 
 
-def _as_token_cert(cert: CertificateInfo) -> CertificateInfo:
+def _as_token_cert(cert: CertificateInfo, library_path: Path | None = None) -> CertificateInfo:
     """PKCS#11 objects hold private key material on the token."""
-    if cert.backend == "windows_store" or cert.has_private_key is not None:
+    lib = cert.pkcs11_library or (str(library_path) if library_path is not None else None)
+    if cert.backend == "windows_store":
+        return cert
+    if cert.has_private_key is not None and cert.pkcs11_library:
         return cert
     return CertificateInfo(
         subject=cert.subject,
@@ -51,6 +54,7 @@ def _as_token_cert(cert: CertificateInfo) -> CertificateInfo:
         has_private_key=True,
         eku_oids=cert.eku_oids,
         key_usage_digital_signature=cert.key_usage_digital_signature,
+        pkcs11_library=lib,
     )
 
 
@@ -101,7 +105,8 @@ def collect_display_certificates(
     libs = dlls if dlls is not None else discover_pkcs11_libraries()
     for dll in libs:
         try:
-            pkcs.extend(_as_token_cert(c) for c in TokenPdfSigner.list_certificates(dll))
+            for c in TokenPdfSigner.list_certificates(dll):
+                pkcs.append(_as_token_cert(c, library_path=dll))
         except Exception:  # noqa: BLE001
             continue
     store: list[CertificateInfo] = []
@@ -112,6 +117,13 @@ def collect_display_certificates(
     merged = merge_unique_certificates(pkcs, store)
     valid = filter_certificates_valid_at(merged, when)
     signing = [c for c in valid if certificate_is_signing_capable(c)]
+    # Stable multi-token order: token label then company/subject
+    signing.sort(
+        key=lambda c: (
+            str(getattr(c, "token_label", "") or "zzz"),
+            str(getattr(c, "subject", "") or ""),
+        )
+    )
     if dlls is None:
         _CACHE = list(merged)
         _CACHE_TS = now

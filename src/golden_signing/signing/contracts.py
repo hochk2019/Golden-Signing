@@ -45,6 +45,7 @@ class CertificateInfo:
     has_private_key: bool | None = None
     eku_oids: tuple[str, ...] = ()
     key_usage_digital_signature: bool | None = None
+    pkcs11_library: str | None = None
 
 
 @dataclass(slots=True)

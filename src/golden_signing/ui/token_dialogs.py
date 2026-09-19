@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import Any
+from pathlib import Path
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
@@ -65,7 +66,11 @@ class CertCard(QFrame):
 
         mst = mst_from_subject(getattr(cert, "subject", "") or "")
         token = getattr(cert, "token_label", None) or "USB token"
+        lib = getattr(cert, "pkcs11_library", None)
+        lib_name = Path(str(lib)).name if lib else ""
         meta_bits = [f"Token: {token}", f"Hết hạn: {_expiry_text(cert)}"]
+        if lib_name:
+            meta_bits.append(f"DLL: {lib_name}")
         if mst:
             meta_bits.insert(0, f"MST: {mst}")
         meta = QLabel("  ·  ".join(meta_bits))

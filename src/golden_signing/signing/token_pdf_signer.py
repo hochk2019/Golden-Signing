@@ -118,6 +118,8 @@ class TokenPdfSigner:
                                 key_size=None,
                                 token_label=label,
                                 backend="pkcs11",
+                                has_private_key=True,
+                                pkcs11_library=str(library_path),
                             )
                         )
                     except Exception:  # noqa: BLE001
@@ -313,6 +315,29 @@ class TokenPdfSigner:
         if getattr(last_err, "code", "") == "CERT_NOT_ON_TOKEN":
             raise TokenError(str(last_err), code="CERT_NOT_ON_TOKEN") from last_err
         raise TokenError(f"token login/list failed: {last_err}", code="TOKEN_LOGIN") from last_err
+
+    def close_session(self) -> None:
+        """Best-effort close PKCS#11 session (multi-token switch / Reset CKS)."""
+        session = self._session
+        self._session = None
+        if session is None:
+            return
+        try:
+            session.close()
+        except Exception:  # noqa: BLE001
+            pass
+
+    @staticmethod
+    def serial_on_library(library_path: Path, serial: str) -> bool:
+        """True if token at library_path currently exposes this cert serial."""
+        if not serial:
+            return False
+        try:
+            certs = TokenPdfSigner.list_certificates(library_path)
+        except Exception:  # noqa: BLE001
+            return False
+        target = serial.lower().lstrip("0")
+        return any(str(c.serial).lower().lstrip("0") == target for c in certs)
 
     def bind_session(
         self,
