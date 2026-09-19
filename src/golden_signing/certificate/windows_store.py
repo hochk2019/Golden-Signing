@@ -74,7 +74,6 @@ def _hidden_startupinfo() -> Any:
 def _run_hidden(cmd: list[str], timeout: float = 20.0) -> str:
     kwargs: dict[str, Any] = {
         "capture_output": True,
-        "text": True,
         "timeout": timeout,
         "check": False,
     }
@@ -87,7 +86,26 @@ def _run_hidden(cmd: list[str], timeout: float = 20.0) -> str:
         proc = subprocess.run(cmd, **kwargs)  # noqa: S603
     except Exception:  # noqa: BLE001
         return ""
-    return (proc.stdout or "") + "\n" + (proc.stderr or "")
+    raw = proc.stdout or b""
+    if isinstance(raw, str):
+        text = raw
+    else:
+        text = ""
+        for enc in ("utf-8", "utf-8-sig", "cp1258", "cp1252", "utf-16-le"):
+            try:
+                text = raw.decode(enc)
+                if "Certificate" in text or "Chứng" in text or "Serial" in text or "CN=" in text:
+                    break
+            except Exception:  # noqa: BLE001
+                continue
+        if not text:
+            text = raw.decode("utf-8", errors="replace")
+    err = proc.stderr or b""
+    if isinstance(err, bytes):
+        text += "\n" + err.decode("utf-8", errors="replace")
+    else:
+        text += "\n" + str(err)
+    return text
 
 
 @dataclass
@@ -236,24 +254,46 @@ def _parse_certutil_metadata(text: str) -> list[StoreCertificate]:
         # Normalize dates to ISO if possible
         def _iso(raw: str) -> str:
             raw = raw.strip()
-            for fmt in ("%m/%d/%Y %I:%M %p", "%m/%d/%Y %H:%M", "%d/%m/%Y %H:%M"):
+            t = raw.replace(" CH", " PM").replace(" SA", " AM")
+            t = t.replace(" CH", "PM").replace(" SA", "AM")
+            for fmt in (
+                "%d/%m/%Y %I:%M %p",
+                "%m/%d/%Y %I:%M %p",
+                "%d/%m/%Y %H:%M",
+                "%m/%d/%Y %H:%M",
+                "%d/%m/%Y",
+                "%m/%d/%Y",
+            ):
                 try:
-                    # Vietnamese AM/PM may be CH/SA
-                    t = raw.replace(" CH", " PM").replace(" SA", " AM")
                     return datetime.strptime(t, fmt).replace(tzinfo=timezone.utc).isoformat()
                 except ValueError:
                     continue
             return raw
 
+        def _looks_expired(raw_iso: str) -> bool:
+            if not raw_iso:
+                return False
+            dt = _parse_iso_datetime(raw_iso)
+            if dt is not None:
+                return dt < datetime.now(timezone.utc)
+            m = re.search(r"(20\d{2})", raw_iso)
+            if m:
+                return int(m.group(1)) < datetime.now(timezone.utc).year
+            return False
+
         fp = hashlib.sha256(f"{serial}|{subject}|{not_after}".encode()).hexdigest()
+        na_iso = _iso(not_after)
+        nb_iso = _iso(not_before)
+        if _looks_expired(na_iso):
+            continue
         out.append(
             StoreCertificate(
                 subject=subject,
                 issuer=issuer,
                 serial=serial.replace(" ", ""),
                 fingerprint_sha256=fp,
-                not_valid_before=_iso(not_before),
-                not_valid_after=_iso(not_after),
+                not_valid_before=nb_iso,
+                not_valid_after=na_iso,
                 has_private_key=has_pk,
                 store="My",
                 der=b"",
@@ -376,6 +416,12 @@ def certificate_is_valid_at(cert: Any, at: datetime | None = None) -> bool:
         return False
     if na is not None and when > na:
         return False
+    # Unparsed dates: hide if year in string is clearly in the past
+    na_raw = str(getattr(cert, "not_valid_after", "") or "")
+    if na is None and na_raw:
+        m = re.search(r"(20\d{2})", na_raw)
+        if m and int(m.group(1)) < when.year:
+            return False
     return True
 
 

@@ -45,7 +45,28 @@ def test_serial_on_library_false_for_missing(tmp_path: Path) -> None:
     assert TokenPdfSigner.serial_on_library(dummy, "540117eca0139bb7c55c666d4550b3a4") is False
 
 
-def test_serial_on_library_true_for_eca_if_present() -> None:
-    """Do not load live PKCS#11 in unit tests (can hard-crash C-level token stack)."""
-    assert hasattr(TokenPdfSigner, "serial_on_library")
-    assert hasattr(TokenPdfSigner, "close_session")
+def test_certutil_date_expiry_filter() -> None:
+    from golden_signing.certificate.windows_store import certificate_is_valid_at
+    from golden_signing.signing.contracts import CertificateInfo
+
+    expired = CertificateInfo(
+        subject="CN=SANCHINE",
+        issuer="CN=SmartSign",
+        serial="aa",
+        fingerprint_sha256="x",
+        not_valid_before="23/05/2020",
+        not_valid_after="23/05/2021",
+        key_algorithm="RSA",
+        backend="windows_store",
+        has_private_key=True,
+    )
+    assert certificate_is_valid_at(expired) is False
+
+
+def test_fold_vietnamese_ascii() -> None:
+    from golden_signing.signing.appearance import fold_vietnamese
+
+    s = fold_vietnamese("CÔNG TY TNHH SANCHINE (VIỆT NAM)")
+    assert "Ệ" not in s and "Ô" not in s
+    assert "CONG TY" in s.upper() or "CONG" in s.upper()
+

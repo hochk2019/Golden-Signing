@@ -1155,15 +1155,53 @@ class MainWindow(QMainWindow):
                     found_dll = dll
                     break
             if found_dll is None:
+                # Windows store cert with CSP private key → try CSP/CNG signer (Sanchine/CA2 store)
+                if backend == "windows_store":
+                    from golden_signing.signing.windows_csp_signer import (
+                        _load_cert_der_from_ps,
+                    )
+
+                    der = None
+                    try:
+                        der = _load_cert_der_from_ps(serial)
+                    except Exception:  # noqa: BLE001
+                        der = None
+                    if der:
+                        try:
+                            from asn1crypto import x509 as asn1_x509
+
+                            cert_asn1 = asn1_x509.Certificate.load(der)
+                            engine = TokenPdfSigner(Path("windows-csp"))
+                            engine.bind_csp(cert_asn1, serial)
+                            engine.cert_info = chosen
+                            if fp:
+                                engine.certificate_fingerprint_sha256 = fp
+                            self._token_signer = engine
+                            cn2 = common_name_from_subject(chosen.subject)
+                            self._profile_label.setText(
+                                f"Profile: PUS Safe · {_ellipsis(cn2, 32)}"
+                            )
+                            self._token_note.setText(
+                                f"Đã kết nối (Windows CSP): {_ellipsis(cn2, 40)}\n"
+                                f"Serial: {serial[:24]}"
+                            )
+                            self._load_cert_profile(fp, company=cn2)
+                            return engine
+                        except Exception as exc:  # noqa: BLE001
+                            self._show_token_error(
+                                "CKS Windows store có private key nhưng không mở được CSP ký.\n"
+                                f"• {company}\n• Serial: {serial}\nChi tiết: {exc}"
+                            )
+                            return None
                 self._show_token_error(
                     "Không mở được phiên ký trên token/PKCS#11.\n"
                     f"• CKS vừa chọn: {company or chosen.subject[:48]}\n"
                     f"• Serial vừa chọn: {serial}\n"
                     f"• Nguồn: {backend or 'unknown'}\n\n"
                     "Không thấy serial này trên token PKCS#11 đang cắm.\n"
-                    "• Cắm đúng USB token chứa CKS đó\n"
-                    "• Ấn Reset CKS rồi **bấm vào đúng thẻ CKS** (hiện serial)\n"
-                    "• Không mở session thiếu serial (tránh ký nhầm token khác)\n"
+                    "• Nếu CKS nằm trong Windows store: cần private key CSP (CA2) trên máy\n"
+                    "• Cắm USB token chứa CKS hoặc cài middleware CA2\n"
+                    "• Ấn Reset CKS rồi **bấm vào đúng thẻ CKS**\n"
                     f"Kiểm tra DLL: {', '.join(pre_notes)}\n\n"
                     f"{_dll_report(candidates)}"
                 )
@@ -1487,7 +1525,10 @@ class MainWindow(QMainWindow):
         from golden_signing.signing.token_pdf_signer import TokenPdfSigner as TPS
 
         engine = self._token_signer
-        if engine is not None:
+        if engine is not None and getattr(engine, "_csp_serial", None):
+            # Windows CSP session: keep unless user Reset (clears signer)
+            pass
+        elif engine is not None:
             info = getattr(engine, "cert_info", None)
             serial = str(getattr(info, "serial", "") or "") if info else ""
             lib = getattr(engine, "library_path", None)

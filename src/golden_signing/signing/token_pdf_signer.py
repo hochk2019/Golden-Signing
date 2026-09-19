@@ -60,6 +60,7 @@ class TokenPdfSigner:
         self._signing_cert = signing_cert
         self._session = session
         self._key_id: bytes | None = None
+        self._csp_serial: str | None = None
         self.certificate_fingerprint_sha256 = ""
         self.cert_info: object | None = None
         self.text_color: tuple[float, float, float] | None = None
@@ -369,8 +370,28 @@ class TokenPdfSigner:
         if signing_cert is not None:
             self.certificate_fingerprint_sha256 = hashlib.sha256(signing_cert.dump()).hexdigest()
 
+    def bind_csp(self, signing_cert: Any, serial: str) -> None:
+        """Bind Windows store cert (CSP/CNG private key) — no PKCS#11 session."""
+        import hashlib
+
+        self._session = "windows-csp"
+        self._signing_cert = signing_cert
+        self._csp_serial = serial
+        self._key_id = None
+        self.cert_info = None
+        if signing_cert is not None:
+            self.certificate_fingerprint_sha256 = hashlib.sha256(signing_cert.dump()).hexdigest()
+
     def _make_pyhanko_signer(self) -> Any:
-        if self._session is None or self._signing_cert is None:
+        if self._csp_serial:
+            from golden_signing.signing.windows_csp_signer import WindowsCspSigner
+
+            return WindowsCspSigner(self._signing_cert, self._csp_serial)
+        if self._session is None or self._signing_cert is None or self._session == "windows-csp":
+            if self._csp_serial:
+                from golden_signing.signing.windows_csp_signer import WindowsCspSigner
+
+                return WindowsCspSigner(self._signing_cert, self._csp_serial)
             raise TokenError("token session not bound; call open_session_with_pin + bind_session")
         from pyhanko.sign.pkcs11 import PKCS11Signer
 
@@ -382,15 +403,41 @@ class TokenPdfSigner:
         except Exception as exc:  # noqa: BLE001
             text = str(exc)
             if "more than one private key" in text.lower():
-                # Retry without key_id but with cert_id if we can discover it later
-                if self._key_id:
-                    kwargs.pop("key_id", None)
-                    return PKCS11Signer(self._session, **kwargs)
-                raise TokenError(
-                    "Token có nhiều private key — chưa xác định được key khớp CKS đã chọn.\n"
-                    "Hãy Quét lại token và chọn đúng chứng thư; hoặc dùng token chỉ có 1 key ký.",
-                    code="MULTI_KEY",
-                ) from exc
+                # Try every private key CKA_ID on the session — do NOT drop key_id
+                try:
+                    import pkcs11
+
+                    keys = list(
+                        self._session.get_objects(
+                            {pkcs11.Attribute.CLASS: pkcs11.ObjectClass.PRIVATE_KEY}
+                        )
+                    )
+                    tried: list[str] = []
+                    for k in keys:
+                        try:
+                            kid = bytes(k[pkcs11.Attribute.ID])
+                        except Exception:  # noqa: BLE001
+                            continue
+                        tried.append(kid.hex()[:16])
+                        try:
+                            return PKCS11Signer(
+                                self._session, signing_cert=self._signing_cert, key_id=kid
+                            )
+                        except Exception:  # noqa: BLE001
+                            continue
+                    raise TokenError(
+                        "Token có nhiều private key — đã thử các key "
+                        f"({', '.join(tried) if tried else 'n/a'}) vẫn lỗi.\n"
+                        "Chọn đúng CKS trên token hoặc dùng middleware/token chỉ có 1 key ký.",
+                        code="MULTI_KEY",
+                    ) from exc
+                except TokenError:
+                    raise
+                except Exception as inner:  # noqa: BLE001
+                    raise TokenError(
+                        f"token sign failed: Found more than one private key ({inner})",
+                        code="MULTI_KEY",
+                    ) from exc
             raise TokenError(f"token sign failed: {text}", code="SIGN_FAILED") from exc
 
     def preflight(self, input_path: Path, profile: SigningProfile) -> object:
