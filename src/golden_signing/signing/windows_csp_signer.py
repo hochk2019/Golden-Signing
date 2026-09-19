@@ -130,14 +130,27 @@ foreach($c in $store.Certificates){{
 $store.Close()
 if($cert -eq $null) {{ Write-Output 'ERR:NO_CERT'; exit 1 }}
 if(-not $cert.HasPrivateKey) {{ Write-Output 'ERR:NO_KEY'; exit 1 }}
+$rsa = $null
 try {{
-  $rsa = $cert.GetRSAPrivateKey()
-  if($cert -eq $null) {{ Write-Output 'ERR:NO_RSA'; exit 1 }}
+  $rsa = [System.Security.Cryptography.X509Certificates.RSACertificateExtensions]::GetRSAPrivateKey($cert)
+}} catch {{ $rsa = $null }}
+if($null -eq $rsa) {{
+  try {{ $rsa = $cert.PrivateKey }} catch {{ $rsa = $null }}
+}}
+if($null -eq $rsa) {{ Write-Output 'ERR:NO_RSA'; exit 1 }}
+try {{
   $sig = $rsa.SignHash($digest, [Security.Cryptography.HashAlgorithmName]::SHA256, [Security.Cryptography.RSASignaturePadding]::Pkcs1)
   [IO.File]::WriteAllBytes('{str(outp).replace(chr(92), "/")}', $sig)
   Write-Output ('OK:' + $sig.Length)
 }} catch {{
-  Write-Output ('ERR:' + $_.Exception.Message)
+  # CSP PrivateKey may not support SignHash(HashAlgorithmName) — try legacy
+  try {{
+    $sig = $rsa.SignData($digest, [Security.Cryptography.CryptoConfig]::MapNameToOID('SHA256'))
+    [IO.File]::WriteAllBytes('{str(outp).replace(chr(92), "/")}', $sig)
+    Write-Output ('OK:' + $sig.Length)
+  }} catch {{
+    Write-Output ('ERR:' + $_.Exception.Message)
+  }}
 }}
 """
         try:
