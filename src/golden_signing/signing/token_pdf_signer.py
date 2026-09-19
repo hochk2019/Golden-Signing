@@ -61,6 +61,7 @@ class TokenPdfSigner:
         self._session = session
         self._key_id: bytes | None = None
         self._csp_serial: str | None = None
+        self._pyhanko_signer_cache: Any | None = None
         self.certificate_fingerprint_sha256 = ""
         self.cert_info: object | None = None
         self.text_color: tuple[float, float, float] | None = None
@@ -378,27 +379,34 @@ class TokenPdfSigner:
         self._signing_cert = signing_cert
         self._csp_serial = serial
         self._key_id = None
+        self._pyhanko_signer_cache = None
         self.cert_info = None
         if signing_cert is not None:
             self.certificate_fingerprint_sha256 = hashlib.sha256(signing_cert.dump()).hexdigest()
 
     def _make_pyhanko_signer(self) -> Any:
         if self._csp_serial:
+            if self._pyhanko_signer_cache is not None:
+                return self._pyhanko_signer_cache
             from golden_signing.signing.windows_csp_signer import WindowsCspSigner
 
             cert = self._signing_cert
             if cert is None:
                 raise TokenError("CSP signer chưa có certificate", code="CSP_CERT_MISSING")
-            return WindowsCspSigner(cert, self._csp_serial)
+            self._pyhanko_signer_cache = WindowsCspSigner(cert, self._csp_serial)
+            return self._pyhanko_signer_cache
         if self._session is None or self._signing_cert is None:
             raise TokenError("token session not bound; call open_session_with_pin + bind_session")
+        if self._pyhanko_signer_cache is not None:
+            return self._pyhanko_signer_cache
         from pyhanko.sign.pkcs11 import PKCS11Signer
 
         kwargs: dict[str, Any] = {"signing_cert": self._signing_cert}
         if self._key_id:
             kwargs["key_id"] = self._key_id
         try:
-            return PKCS11Signer(self._session, **kwargs)
+            self._pyhanko_signer_cache = PKCS11Signer(self._session, **kwargs)
+            return self._pyhanko_signer_cache
         except Exception as exc:  # noqa: BLE001
             text = str(exc)
             if "more than one private key" in text.lower():
@@ -419,9 +427,10 @@ class TokenPdfSigner:
                             continue
                         tried.append(kid.hex()[:16])
                         try:
-                            return PKCS11Signer(
+                            self._pyhanko_signer_cache = PKCS11Signer(
                                 self._session, signing_cert=self._signing_cert, key_id=kid
                             )
+                            return self._pyhanko_signer_cache
                         except Exception:  # noqa: BLE001
                             continue
                     raise TokenError(
