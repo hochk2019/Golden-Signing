@@ -271,16 +271,31 @@ class TokenPdfSigner:
                         clabel = ""
                     cert = asn1_x509.Certificate.load(der)
                     serial_hex = format(cert.serial_number, "x")
-                    if cert_serial is not None:
-                        if serial_hex.lower() == cert_serial.lower().lstrip("0") or serial_hex.lower() == cert_serial.lower():
-                            chosen = cert
-                            chosen_der = der
-                            break
-                        continue
-                    if cert_label is None or cert_label == clabel or cert_label in clabel:
+                    want = (cert_serial or "").strip()
+                    if not want:
+                        if len(certs) > 1:
+                            last_err = TokenError(
+                                "Token có nhiều CKS nhưng thiếu serial để chọn — không mở session mặc định.",
+                                code="CERT_SERIAL_REQUIRED",
+                            )
+                            session.close()
+                            continue
                         chosen = cert
                         chosen_der = der
                         break
+                    if serial_hex.lower() == want.lower().lstrip("0") or serial_hex.lower() == want.lower():
+                        chosen = cert
+                        chosen_der = der
+                        break
+                    if cert_label is not None:
+                        try:
+                            clabel = bytes(obj[pkcs11.Attribute.LABEL]).decode("utf-8", "replace")
+                        except Exception:  # noqa: BLE001
+                            clabel = ""
+                        if cert_label == clabel or cert_label in clabel:
+                            chosen = cert
+                            chosen_der = der
+                            break
                 if chosen is None:
                     session.close()
                     serials = []

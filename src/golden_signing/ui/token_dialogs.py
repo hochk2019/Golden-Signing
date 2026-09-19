@@ -99,7 +99,7 @@ class CertCard(QFrame):
 
 
 class CertPickerDialog(QDialog):
-    """Polished certificate chooser — card list, one primary action."""
+    """Certificate chooser — user must click a card before OK."""
 
     def __init__(self, certs: list, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -110,7 +110,7 @@ class CertPickerDialog(QDialog):
         self.setMaximumWidth(560)
         self._certs = list(certs)
         self._cards: list[CertCard] = []
-        self._selected_index = 0 if self._certs else -1
+        self._selected_index = -1  # force explicit click
 
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
@@ -124,9 +124,10 @@ class CertPickerDialog(QDialog):
         title = QLabel("Chọn chứng thư số")
         title.setObjectName("dlgTitle")
         hlay.addWidget(title)
-        sub = QLabel("Chứng thư đang có trên USB token")
-        sub.setObjectName("dlgSubtitle")
-        hlay.addWidget(sub)
+        self._sub = QLabel("Chọn đúng công ty / token trước khi xác nhận")
+        self._sub.setObjectName("dlgSubtitle")
+        self._sub.setWordWrap(True)
+        hlay.addWidget(self._sub)
         root.addWidget(header)
 
         body = QWidget()
@@ -147,7 +148,7 @@ class CertPickerDialog(QDialog):
         self._group = QButtonGroup(self)
         self._group.setExclusive(True)
         for i, cert in enumerate(self._certs):
-            card = CertCard(cert, selected=(i == 0))
+            card = CertCard(cert, selected=False)
             card._radio.clicked.connect(  # noqa: SLF001
                 lambda _=False, idx=i: self.select_index(idx)
             )
@@ -178,7 +179,7 @@ class CertPickerDialog(QDialog):
         flay.addWidget(cancel)
         self._ok = QPushButton("Chọn chứng thư")
         self._ok.setObjectName("primaryCta")
-        self._ok.setEnabled(bool(self._certs))
+        self._ok.setEnabled(False)  # explicit selection required
         self._ok.clicked.connect(self.accept)
         flay.addWidget(self._ok)
         root.addWidget(footer)
@@ -192,10 +193,25 @@ class CertPickerDialog(QDialog):
         self._selected_index = index
         for i, card in enumerate(self._cards):
             card.set_selected(i == index)
+            if i == index:
+                card._radio.setChecked(True)  # noqa: SLF001
+        cert = self._certs[index]
+        cn = common_name_from_subject(getattr(cert, "subject", "") or "")
+        serial = str(getattr(cert, "serial", "") or "")
+        token = getattr(cert, "token_label", None) or ""
+        backend = getattr(cert, "backend", "") or ""
+        self._sub.setText(
+            f"Đã chọn: {cn}\nSerial: {serial or '—'} · {token or backend}"
+        )
+        self._ok.setEnabled(True)
 
     def selected_cert(self) -> Any | None:
         if 0 <= self._selected_index < len(self._certs):
             return self._certs[self._selected_index]
+        # Fallback: checked radio in group
+        bid = self._group.checkedId()
+        if 0 <= bid < len(self._certs):
+            return self._certs[bid]
         return None
 
 

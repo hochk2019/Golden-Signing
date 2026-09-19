@@ -2,15 +2,30 @@
 feature: token-multi-session
 status: in-progress
 updated: 2026-09-19
-branch: (implement after user approval; prefer feature worktree if sandbox allows)
-commits: (not started)
+branch: main
+commits: 7355d89 + multi-token amendment (field-test fix)
 ---
 
 # Multi-token session handling (switch CKS after batch sign)
 
 ## Report
 
-(empty — awaiting user approval before implementation)
+**What was built** — After user approval: multi-token signing flow. Each PKCS#11 certificate records `pkcs11_library`. Signing opens a **fresh** cert scan, prefers the DLL that listed the chosen serial, **preflights serial presence before PIN**, and **never** opens a session without serial when serial is known. Same-serial sessions from the current app run are reused **without re-entering PIN**; **Reset CKS** (button + error dialog) refreshes the token list while keeping those sessions. Batch end clears cert cache; `_on_sign` re-validates the active signer serial on its library. Picker shows DLL name; list sorted by token label.
+
+**Verification** — `pytest tests/unit/test_token_multi_session.py test_certificate_discovery.py test_pkcs11_bitness.py test_token_multikey.py test_smoke.py` → PASS (25). Live PKCS#11 load in unit test removed (C-level crash 0x8010000a). Installer rebuilt: `GoldenSign-Setup-1.1.13.exe` SHA `24106dbde01833d7b4bc142dc31fa0fc30fe2c62716d15ad051f1ac6864ddcdf`.
+
+**Journey log**
+1. Dual-token fail `no token present` after switching Sanchine → Jaeyoung: missing DLL-on-cert + stale cache + leftover session + serial-less fallback.
+2. User: full plan + no fallback + **Reset CKS** without PIN re-prompt for same serial this run.
+3. Unit tests must not load live PKCS#11 (hard crash).
+4. ECUSSign remote signing remains paused.
+
+**Manual checklist (user)**
+1. 2 tokens cắm; ký batch Sanchine OK  
+2. Xóa list → thêm file → Ký → chọn Jaeyoung → PIN  
+3. Kỳ vọng: ký OK (không `no token present` nếu token ECA vẫn cắm)  
+4. Reset CKS → chọn lại CKS vừa PIN → **không** hỏi PIN lại  
+5. Rút token → Reset CKS → picker hết serial đó hoặc báo mất token trước PIN  
 
 ## [S1] Problem
 
@@ -105,16 +120,16 @@ If preferred fails: try other DLLs **only with cert_serial=serial** (no loose fa
 
 See above. No production UI redesign beyond picker meta/sort and error text.
 
-## Tasks (after approval)
+## Tasks
 
-- [ ] T1: `CertificateInfo.pkcs11_library` + catalog stamps DLL — acceptance: unit test shows cert from `eca_csp11_v1.dll` has that path (covers: S2.1)
-- [ ] T2: Sign-path fresh scan + cache clear after batch/rescan — acceptance: `_ensure_token_engine` does not serve >TTL cache; `_run_batch` end calls `clear_certificate_cache()` (covers: S2.2)
-- [ ] T3: `TokenPdfSigner.close_session` + call sites — acceptance: switching/rescan closes previous session (unit/smoke) (covers: S2.3)
-- [ ] T4: Preferred-DLL open + serial preflight + no serial-less fallback when serial known — acceptance: mock/path tests; error text when serial missing on preferred DLL (covers: S2.4)
-- [ ] T5: `_on_sign` re-validate active signer serial — acceptance: stale signer forces picker again (covers: S2.5)
-- [ ] T6: Picker shows DLL/token_label + group sort — acceptance: UI lists two companies with distinct labels (covers: S2.6)
-- [ ] T7: Tests + manual multi-token script checklist — acceptance: pytest green; checklist in spec Report (covers: S2)
-- [ ] T8: Rebuild installer after user approval — acceptance: Setup artifact + checksums for reinstall (covers: S2)
+- [x] T1: `CertificateInfo.pkcs11_library` + catalog stamps DLL (covers: S2.1)
+- [x] T2: Sign-path fresh scan + cache clear after batch/rescan (covers: S2.2)
+- [x] T3: `TokenPdfSigner.close_session` + switch/rescan call sites (covers: S2.3)
+- [x] T4: Preferred-DLL open + serial preflight + no serial-less fallback (covers: S2.4)
+- [x] T5: `_on_sign` re-validate active signer serial (covers: S2.5)
+- [x] T6: Picker DLL/token_label + sort by token (covers: S2.6)
+- [x] T7: Unit tests (covers: S2)
+- [x] T8: Rebuild installer (covers: S2)
 
 ## Manual acceptance checklist (user test)
 

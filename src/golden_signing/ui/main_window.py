@@ -905,6 +905,8 @@ class MainWindow(QMainWindow):
         self._cert_scan_busy = False
 
     def _apply_token_scan_result(self, dlls, certs, err: str = "") -> None:
+        from golden_signing.ui.cert_label import common_name_from_subject
+
         if err and not certs:
             self._token_note.setText(f"Quét token lỗi: {err}")
             return
@@ -920,31 +922,81 @@ class MainWindow(QMainWindow):
                     f"PKCS#11: {dlls[0].name}\nKhông thấy CKS ký được (đã ẩn cert không dùng ký)."
                 )
             return
-        c = certs[0]
-        backend = getattr(c, "backend", "") or ""
-        src = "Windows store" if backend == "windows_store" else (c.token_label or "USB")
-        self._token_note.setText(
-            f"Chứng thư: {c.subject[:48]}…\nNguồn: {src} · Hết hạn: {str(c.not_valid_after)[:10]}"
-        )
-        self._profile_label.setText("Profile: PUS Safe · Token USB")
+        lines = [f"Tìm thấy {len(certs)} CKS có thể ký:"]
+        for c in certs[:6]:
+            backend = getattr(c, "backend", "") or ""
+            src = "Windows store" if backend == "windows_store" else (c.token_label or "USB")
+            serial = str(getattr(c, "serial", "") or "")[:20]
+            cn = common_name_from_subject(str(getattr(c, "subject", "") or ""))[:36]
+            lines.append(f"· {cn} · {src} · {serial}")
+        self._token_note.setText("\n".join(lines))
+        self._profile_label.setText("Profile: PUS Safe · chọn CKS khi ký")
 
     def _refresh_token_label(self) -> None:
-        """Synchronous scan (rescan button / tests). No PowerShell."""
+        """Synchronous scan (Reset CKS). Always fresh — no cache."""
         from golden_signing.certificate.catalog import collect_display_certificates
         from golden_signing.token.discovery import discover_pkcs11_libraries
 
         dlls = discover_pkcs11_libraries()
-        certs = collect_display_certificates(dlls=None, use_cache=True)
+        certs = collect_display_certificates(dlls=None, use_cache=False)
         self._apply_token_scan_result(dlls, certs, "")
 
-    def _on_rescan_token(self) -> None:
-        """Reset CKS: fresh cert list; keep PIN sessions from this run for same serial."""
+    def _prune_token_sessions(self) -> None:
+        """Drop cached PKCS#11 sessions whose serial is gone from their DLL."""
+        from golden_signing.signing.token_pdf_signer import TokenPdfSigner as TPS
+
+        keep: dict[str, TokenPdfSigner] = {}
+        for key, signer in list(self._token_session_cache.items()):
+            lib = getattr(signer, "library_path", None)
+            info = getattr(signer, "cert_info", None)
+            serial = str(getattr(info, "serial", "") or "") if info else ""
+            live = False
+            if lib is not None and Path(lib).is_file() and serial:
+                try:
+                    live = TPS.serial_on_library(Path(lib), serial)
+                except Exception:  # noqa: BLE001
+                    live = False
+            if live:
+                keep[key] = signer
+            else:
+                try:
+                    signer.close_session()
+                except Exception:  # noqa: BLE001
+                    pass
+        self._token_session_cache = keep
+
+    def _on_rescan_token(self, *, reopen_picker: bool = False) -> None:
+        """Reset CKS: fresh list; keep only still-live PIN sessions."""
         from golden_signing.certificate.catalog import clear_certificate_cache
+        from collections import Counter
 
         self._token_signer = None
         clear_certificate_cache()
-        self._refresh_token_label()
-        self.statusBar().showMessage("Đã Reset CKS (làm mới danh sách token)", 3000)
+        self._prune_token_sessions()
+        dlls = discover_pkcs11_libraries()
+        from golden_signing.certificate.catalog import collect_display_certificates
+
+        certs = collect_display_certificates(dlls=None, use_cache=False)
+        self._apply_token_scan_result(dlls, certs, "")
+        # Summary per token so multi-token MST/serial is visible
+        counts: Counter[str] = Counter()
+        for c in certs:
+            label = getattr(c, "token_label", None) or getattr(c, "backend", "") or "khác"
+            if getattr(c, "backend", "") == "windows_store":
+                label = "Windows store"
+            counts[str(label)[:24]] += 1
+        summary = ", ".join(f"{k}:{v}" for k, v in counts.items()) or "(trống)"
+        kept = len(self._token_session_cache)
+        self._token_note.setText(
+            (self._token_note.text() + f"\nReset CKS · {summary} · phiên PIN giữ: {kept}")
+            if self._token_note.text()
+            else f"Reset CKS · {summary}"
+        )
+        self.statusBar().showMessage(f"Đã Reset CKS — {summary}", 4000)
+        if reopen_picker and any(not j.is_terminal for j in self._model.jobs()):
+            from PySide6.QtCore import QTimer
+
+            QTimer.singleShot(200, self._ensure_token_engine)
 
     def _show_token_error(self, text: str) -> None:
         msg = QMessageBox(self)
@@ -955,7 +1007,7 @@ class MainWindow(QMainWindow):
         msg.addButton(QMessageBox.StandardButton.Ok)
         msg.exec()
         if msg.clickedButton() is reset_btn:
-            self._on_rescan_token()
+            self._on_rescan_token(reopen_picker=True)
 
     def _ensure_token_engine(self) -> TokenPdfSigner | None:
         from golden_signing.certificate.catalog import collect_display_certificates
@@ -989,6 +1041,11 @@ class MainWindow(QMainWindow):
             return None
         chosen = dlg.selected_cert()
         if chosen is None:
+            QMessageBox.information(
+                self,
+                "Chứng thư số",
+                "Chưa chọn chứng thư số.\nHãy bấm vào thẻ CKS đúng công ty rồi Chọn chứng thư.",
+            )
             return None
         if not certificate_is_signing_capable(chosen):
             QMessageBox.warning(
@@ -1034,8 +1091,17 @@ class MainWindow(QMainWindow):
         if cache_key:
             cached = self._token_session_cache.get(cache_key)
             if cached is not None:
+                info = getattr(cached, "cert_info", None)
+                c_serial = str(getattr(info, "serial", "") or "").lower().lstrip("0") if info else ""
+                c_subject = str(getattr(info, "subject", "") or "") if info else ""
+                subject_ok = (not c_subject) or (c_subject[:20] in company or company[:20] in c_subject or not company)
+                if c_serial != cache_key:
+                    subject_ok = False
                 lib = getattr(cached, "library_path", None)
-                if lib is not None and Path(lib).is_file() and TPS.serial_on_library(Path(lib), serial or ""):
+                live = False
+                if lib is not None and Path(lib).is_file() and serial:
+                    live = TPS.serial_on_library(Path(lib), serial)
+                if live and subject_ok:
                     cached.cert_info = chosen
                     if fp:
                         cached.certificate_fingerprint_sha256 = fp
@@ -1091,14 +1157,14 @@ class MainWindow(QMainWindow):
             if found_dll is None:
                 self._show_token_error(
                     "Không mở được phiên ký trên token/PKCS#11.\n"
-                    f"• CKS: {company or chosen.subject[:48]}\n"
-                    f"• Serial: {serial}\n"
+                    f"• CKS vừa chọn: {company or chosen.subject[:48]}\n"
+                    f"• Serial vừa chọn: {serial}\n"
                     f"• Nguồn: {backend or 'unknown'}\n\n"
                     "Không thấy serial này trên token PKCS#11 đang cắm.\n"
                     "• Cắm đúng USB token chứa CKS đó\n"
-                    "• Ấn Reset CKS rồi chọn lại chứng thư\n"
+                    "• Ấn Reset CKS rồi **bấm vào đúng thẻ CKS** (hiện serial)\n"
                     "• Không mở session thiếu serial (tránh ký nhầm token khác)\n"
-                    f"Kiểm tra: {', '.join(pre_notes)}\n\n"
+                    f"Kiểm tra DLL: {', '.join(pre_notes)}\n\n"
                     f"{_dll_report(candidates)}"
                 )
                 return None
