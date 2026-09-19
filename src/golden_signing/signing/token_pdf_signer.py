@@ -386,12 +386,11 @@ class TokenPdfSigner:
         if self._csp_serial:
             from golden_signing.signing.windows_csp_signer import WindowsCspSigner
 
-            return WindowsCspSigner(self._signing_cert, self._csp_serial)
-        if self._session is None or self._signing_cert is None or self._session == "windows-csp":
-            if self._csp_serial:
-                from golden_signing.signing.windows_csp_signer import WindowsCspSigner
-
-                return WindowsCspSigner(self._signing_cert, self._csp_serial)
+            cert = self._signing_cert
+            if cert is None:
+                raise TokenError("CSP signer chưa có certificate", code="CSP_CERT_MISSING")
+            return WindowsCspSigner(cert, self._csp_serial)
+        if self._session is None or self._signing_cert is None:
             raise TokenError("token session not bound; call open_session_with_pin + bind_session")
         from pyhanko.sign.pkcs11 import PKCS11Signer
 

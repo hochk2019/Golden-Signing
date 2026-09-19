@@ -3,7 +3,7 @@ feature: token-multi-session
 status: in-progress
 updated: 2026-09-19
 branch: main
-commits: 7355d89 + multi-token amendment (field-test fix)
+commits: 7b9b325 + 01d6c07 (CSP) — unpushed
 ---
 
 # Multi-token session handling (switch CKS after batch sign)

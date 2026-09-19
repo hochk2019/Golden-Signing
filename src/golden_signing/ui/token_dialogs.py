@@ -66,6 +66,9 @@ class CertCard(QFrame):
 
         mst = mst_from_subject(getattr(cert, "subject", "") or "")
         token = getattr(cert, "token_label", None) or "USB token"
+        backend = str(getattr(cert, "backend", "") or "")
+        if backend == "windows_store":
+            token = "Windows CSP (cert store)"
         lib = getattr(cert, "pkcs11_library", None)
         lib_name = Path(str(lib)).name if lib else ""
         meta_bits = [f"Token: {token}", f"Hết hạn: {_expiry_text(cert)}"]

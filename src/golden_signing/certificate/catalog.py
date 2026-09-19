@@ -117,6 +117,19 @@ def collect_display_certificates(
     merged = merge_unique_certificates(pkcs, store)
     valid = filter_certificates_valid_at(merged, when)
     signing = [c for c in valid if certificate_is_signing_capable(c)]
+    # Extra guard: drop certs whose not_valid_after year is clearly in the past
+    now_year = when.year
+    keep = []
+    for c in signing:
+        raw = str(getattr(c, "not_valid_after", "") or "")
+        m = None
+        import re as _re
+
+        m = _re.search(r"(20\d{2})", raw)
+        if m and int(m.group(1)) < now_year:
+            continue
+        keep.append(c)
+    signing = keep
     # Stable multi-token order: token label then company/subject
     signing.sort(
         key=lambda c: (
