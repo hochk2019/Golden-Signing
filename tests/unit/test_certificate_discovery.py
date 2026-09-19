@@ -62,11 +62,12 @@ def test_filter_certificates_valid_at_signing_date() -> None:
 
 
 def test_merge_unique_prefers_first() -> None:
+    # Same serial: Windows store wins (CSP vendor-PIN path)
     a = _cert("CN=A", "2024-01-01", "2028-01-01", serial="1", backend="pkcs11", fp="same")
     b = _cert("CN=B", "2024-01-01", "2028-01-01", serial="1", backend="windows_store", fp="same")
     merged = merge_unique_certificates([a], [b])
     assert len(merged) == 1
-    assert merged[0].backend == "pkcs11"
+    assert merged[0].backend == "windows_store"
 
 
 def test_hide_store_certs_without_private_key() -> None:

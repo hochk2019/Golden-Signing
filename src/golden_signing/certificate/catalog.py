@@ -59,22 +59,25 @@ def _as_token_cert(cert: CertificateInfo, library_path: Path | None = None) -> C
 
 
 def merge_unique_certificates(*groups: list[CertificateInfo]) -> list[CertificateInfo]:
-    seen: set[str] = set()
-    out: list[CertificateInfo] = []
+    """Prefer Windows store (CSP) over PKCS#11 when serial matches — vendor PIN path."""
+    by_serial: dict[str, CertificateInfo] = {}
+    order: list[str] = []
     for group in groups:
         for cert in group:
-            keys = {
-                (cert.fingerprint_sha256 or "").lower(),
-                str(cert.serial or "").lower().lstrip("0"),
-            }
-            keys.discard("")
-            if not keys:
-                keys = {f"{cert.subject}|{cert.backend}"}
-            if keys & seen:
+            serial = str(cert.serial or "").lower().lstrip("0")
+            key = serial or f"{cert.fingerprint_sha256}|{cert.backend}"
+            prev = by_serial.get(key)
+            if prev is None:
+                by_serial[key] = cert
+                order.append(key)
                 continue
-            seen |= keys
-            out.append(cert)
-    return out
+            # Prefer store+CSP for signing UX (ECUSTOOL-like)
+            if prev.backend != "windows_store" and cert.backend == "windows_store":
+                by_serial[key] = cert
+            elif prev.backend == cert.backend and prev.has_private_key is not True:
+                if cert.has_private_key:
+                    by_serial[key] = cert
+    return [by_serial[k] for k in order]
 
 
 def collect_display_certificates(

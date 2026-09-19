@@ -30,12 +30,13 @@ def test_certificate_info_has_pkcs11_library_field() -> None:
     assert store.pkcs11_library is None
 
 
-def test_merge_prefers_pkcs11_library_stamp() -> None:
-    a = _cert("aa1", backend="pkcs11", lib=r"C:\a\pkcs11.dll", token="Sanchine")
-    b = _cert("aa1", backend="windows_store", lib=None, token="store")
-    merged = merge_unique_certificates([a], [b])
+def test_merge_prefers_windows_store_csp_over_pkcs11() -> None:
+    """Same serial: prefer Windows store (CSP) for vendor-PIN signing path."""
+    pkcs = _cert("aa1", backend="pkcs11", lib=r"C:\a\pkcs11.dll", token="ECA")
+    store = _cert("aa1", backend="windows_store", lib=None, token="store")
+    merged = merge_unique_certificates([pkcs], [store])
     assert len(merged) == 1
-    assert merged[0].pkcs11_library is not None
+    assert merged[0].backend == "windows_store"
 
 
 def test_serial_on_library_false_for_missing(tmp_path: Path) -> None:

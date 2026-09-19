@@ -52,6 +52,21 @@ def _ellipsis(text: str, n: int) -> str:
     return t if len(t) <= n else t[: n - 1] + "…"
 
 
+def _store_has_private_key(serial: str) -> bool:
+    if not serial:
+        return False
+    try:
+        from golden_signing.certificate.windows_store import list_windows_my_certificates
+
+        target = serial.lower().lstrip("0")
+        for c in list_windows_my_certificates():
+            if str(c.serial).lower().lstrip("0") == target:
+                return bool(c.has_private_key)
+    except Exception:  # noqa: BLE001
+        return False
+    return False
+
+
 class MainWindow(QMainWindow):
     _cert_scan_finished = Signal(object)
 
@@ -1067,30 +1082,23 @@ class MainWindow(QMainWindow):
             return "\n".join(lines)
 
         # Store certs may use CSP even when PKCS#11 DLLs exist or not — do not block before PIN
-        # Always ask PIN after user picks a CKS (no session-cache skip)
-        pin_dlg = PinDialog(company=company, parent=self)
-        if pin_dlg.exec() != QDialog.DialogCode.Accepted:
-            return None
-        pin = pin_dlg.pin()
-        if not pin:
-            return None
-        try:
-            # Windows store + private key → CSP/CNG (Sanchine etc.)
-            if backend == "windows_store":
-                from golden_signing.signing.windows_csp_signer import load_store_der_by_serial
+        # Windows store cert with private key → CSP first (like ECUSTOOL):
+        # no Golden Sign PIN dialog — vendor middleware shows its own PIN.
+        if backend == "windows_store" or (
+            serial and _store_has_private_key(serial)
+        ):
+            from golden_signing.signing.windows_csp_signer import (
+                clear_csp_cache,
+                load_store_der_by_serial,
+            )
 
+            der = None
+            try:
+                der = load_store_der_by_serial(serial)
+            except Exception:  # noqa: BLE001
                 der = None
-                try:
-                    der = load_store_der_by_serial(serial)
-                except Exception:  # noqa: BLE001
-                    der = None
-                if not der:
-                    self._show_token_error(
-                        "Không lấy được CKS Windows store để ký CSP.\n"
-                        f"• CKS: {company}\n• Serial: {serial}\n"
-                        "• Kiểm tra certmgr Personal có CKS còn hạn + private key."
-                    )
-                    return None
+            if der:
+                clear_csp_cache()
                 from asn1crypto import x509 as asn1_x509
 
                 cert_asn1 = asn1_x509.Certificate.load(der)
@@ -1109,10 +1117,27 @@ class MainWindow(QMainWindow):
                 self._profile_label.setText(f"Profile: PUS Safe · {_ellipsis(cn2, 32)}")
                 self._token_note.setText(
                     f"Đã kết nối (Windows CSP): {_ellipsis(cn2, 40)}\n"
-                    f"Serial: {serial[:24]}"
+                    f"Serial: {serial[:24]}\n"
+                    "PIN: nhập trên hộp thoại của CA/token nếu được hỏi."
                 )
                 self._load_cert_profile(fp, company=cn2)
                 return engine
+            if backend == "windows_store":
+                self._show_token_error(
+                    "Không lấy được CKS Windows store để ký CSP.\n"
+                    f"• CKS: {company}\n• Serial: {serial}\n"
+                    "• Kiểm tra certmgr Personal có CKS còn hạn + private key."
+                )
+                return None
+
+        # PKCS#11 only when cert is not available via Windows CSP store
+        pin_dlg = PinDialog(company=company, parent=self)
+        if pin_dlg.exec() != QDialog.DialogCode.Accepted:
+            return None
+        pin = pin_dlg.pin()
+        if not pin:
+            return None
+        try:
 
             # PKCS#11 token path
             if not dlls:

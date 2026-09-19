@@ -69,11 +69,7 @@ class CertCard(QFrame):
         backend = str(getattr(cert, "backend", "") or "")
         if backend == "windows_store":
             token = "Windows CSP (cert store)"
-        lib = getattr(cert, "pkcs11_library", None)
-        lib_name = Path(str(lib)).name if lib else ""
         meta_bits = [f"Token: {token}", f"Hết hạn: {_expiry_text(cert)}"]
-        if lib_name:
-            meta_bits.append(f"DLL: {lib_name}")
         if mst:
             meta_bits.insert(0, f"MST: {mst}")
         meta = QLabel("  ·  ".join(meta_bits))
